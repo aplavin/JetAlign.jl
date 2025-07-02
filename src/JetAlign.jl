@@ -105,10 +105,9 @@ function imalign_interactive(files)
             end
         end
 
-        on(events(fig).mouseposition, priority=10) do pos
+        on(events(fig).mouseposition) do pos
             if is_mouseinside(ax) || is_mouseinside(ax_si)
                 curpos[] = Tuple(mouseposition(is_mouseinside(ax) ? ax : ax_si))
-                return Consume()
             else
                 curpos[] = (NaN, NaN)
             end
