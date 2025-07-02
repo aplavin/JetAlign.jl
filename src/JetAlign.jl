@@ -1,8 +1,6 @@
 module JetAlign
 
-
 using DataManipulation
-# using StructArrays
 using StaticArrays
 using AccessorsExtra
 using InterferometricModels
@@ -19,146 +17,11 @@ using PyFormattedStrings
 using MakieExtra
 import GLMakie
 
+export imalign_interactive
 
-round_(x::Number, precision::Number) = round(Integer, x / precision) * precision
-
-
-mask_ccs(mod::MultiComponentModel, radius) = @modify(components(mod)) do ccs
-    filter(ccs) do cc
-        norm(coords(cc)) > radius
-    end
-end
-
-module CorrelationKind
-struct Raw end
-struct Normalized end
-end
-
-function aggregate_ccs_by_pixel(ccs; step)
-    @p @modify(components(ccs)) do __
-        group_vg(round_.(coords(_), step))
-        map(InterferometricModels.Point(sum(flux, _), key(_)))
-    end
-end
-
-function spectral_index(a::KeyedArray, b::KeyedArray, freqs; threshold=0, threshold_dynrange=Inf)
-    @assert length(freqs) == 2
-    shifted_imgs = a, b
-    log_freq_ratio = log(freqs[2] / freqs[1])
-    si = similar(shifted_imgs[2])
-    si .= log.(clamp.(shifted_imgs[2] ./ shifted_imgs[1], 0, Inf)) ./ log_freq_ratio
-    # shifted_imgs[2]
-    for sh_img in shifted_imgs
-        peak = maximum(sh_img)
-        si[sh_img .< max(threshold, peak / threshold_dynrange)] .= NaN
-    end
-    return si
-end
-
-function smooth!(A::Array; σ_pix::Real)
-    pad = ceil(Int, 1*σ_pix)
-    A[begin:begin+pad, :] .= 0
-    A[end-pad:end, :] .= 0
-    A[:, begin:begin+pad] .= 0
-    A[:, end-pad:end] .= 0
-
-    kernel = Kernel.gaussian((σ_pix,σ_pix), (8*ceil(Int, σ_pix) + 1, 8*ceil(Int, σ_pix) + 1))
-
-    tmp = map(Returns(0.), A)
-    tmp[end ÷ 2, end ÷ 2] = 1
-    imfilter!(tmp, tmp, kernel)	
-
-    imfilter!(A, A, kernel)
-    A ./= maximum(tmp)
-    # imfilter!(A, A, IF.KernelFactors.IIRGaussian((σ_pix, σ_pix)))
-
-    return A
-end
-
-function smooth!(A::KeyedArray; σ::Number)
-    pixstep = @p axiskeys(A) map(step(_) |> abs) uniqueonly
-    σ_pix = σ / pixstep
-    smooth!(A.data.data; σ_pix)
-    return A
-end
-
-smooth(A::AbstractArray; kwargs...) = smooth!(copy(A); kwargs...)
-
-function unsmoothed_xcorr_ccs(::CorrelationKind.Raw, ccs_a, ccs_b; radecs)
-    pixstep = @p axiskeys(radecs) map(step(_) |> abs) uniqueonly
-    xcorr = map(Returns(0.), radecs)
-    ccs_a_ = aggregate_ccs_by_pixel(ccs_a; step=pixstep/5)
-    ccs_b_ = aggregate_ccs_by_pixel(ccs_b; step=pixstep/5)
-    for cc_a in components(ccs_a_)
-        for cc_b in components(ccs_b_)
-            diff = coords(cc_a) - coords(cc_b)
-            xcorr(Near(diff[1]), Near(diff[2]), :) .+= flux(cc_a) * flux(cc_b)
-        end
-    end
-    return xcorr
-end
-
-function xcorr_ccs(kind::CorrelationKind.Raw, ccs_a, ccs_b; radecs, σ)
-    smooth!(unsmoothed_xcorr_ccs(kind, ccs_a, ccs_b; radecs); σ)
-end
-
-function cc_to_image(cc; σ, radecs, shift=SVector(0u"mas", 0u"mas"))
-    img = map(Returns(0.), radecs)
-    for c in components(cc)
-        coo = coords(c) + shift
-        img(Near(coo[1]), Near(coo[2]), :) .+= c.flux
-    end
-    return smooth!(img; σ)
-end
-
-function spectral_index(a::MultiComponentModel, b::MultiComponentModel, freqs; shift, radecs, σ, kwargs...)
-    ccs_ab = (a, b)
-    shifted_imgs = (cc_to_image(ccs_ab[1]; σ, radecs, shift), cc_to_image(ccs_ab[2]; σ, radecs))
-    spectral_index(shifted_imgs..., freqs; kwargs...)
-end
-
-function highlight_string_differences(strs; colors)
-	if allequal(length, strs)
-		equalchars = @p let
-			strs
-			map() do str
-				collect(str) .== collect(first(strs))
-			end
-			stack
-			eachslice(dims=1)
-			map(all)
-		end
-		map(strs, colors) do str, color
-			parts = map(collect(str), equalchars) do ch, isequal
-				kws = isequal ? (;) : (;color)
-				rich(string(ch); kws...)
-			end
-			rich(parts...)
-		end
-	else
-		neqchars_start = @p let
-			0:minimum(length, strs)
-			filter() do i
-				allequal(s -> (@view s[begin:i]), strs)
-			end
-			maximum
-		end
-		neqchars_end = @p let
-			0:minimum(length, strs)
-			filter() do i
-				allequal(s -> (@view s[end-i+1:end]), strs)
-			end
-			minimum
-		end
-		map(strs, colors) do str, color
-			rich(
-				str[1:neqchars_start],
-				rich(str[neqchars_start+1:end-neqchars_end]; color),
-				str[end-neqchars_end+1:end],
-			)
-		end
-	end
-end
+include("utils.jl")
+include("image_processing.jl")
+include("correlation.jl")
 
 function imalign_interactive(files)
     @assert length(files) == 2
