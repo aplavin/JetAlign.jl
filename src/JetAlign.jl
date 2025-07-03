@@ -6,6 +6,7 @@ using AccessorsExtra
 using InterferometricModels
 using VLBIFiles; using VLBIFiles: coords, flux
 using AxisKeysExtra
+using StatsBase
 using RectiGrids
 using VLBIPlots
 using IntervalSets
@@ -34,6 +35,7 @@ function imalign_interactive(files)
         mod = @modify(ustrip, mod |> RecursiveOfType(ModelComponent) |> flux)
         (;freq=VLBI.frequency(fimg), mod, beam=VLBI.load(Beam, f))
     end sort(by=_.freq)
+    avgcircbeam = @p images_with_data map(fwhm_average(_.beam)) geomean() construct(Beam{CircularGaussian}, fwhm_average => __)
 
     colors = [:red, :blue]
     radecs = @p range(-8u"mas", 8u"mas", length=512) grid(ra=reverse(__), dec=__)
@@ -41,7 +43,7 @@ function imalign_interactive(files)
     with_theme(Axis=(;width=350, height=350)) do
         fig = Figure()
 
-        σobs = Observable(0.5)
+        σobs = Observable(ustrip(u"mas", avgcircbeam.σ))
         curbeam = @lift beam(CircularGaussian, σ=$σobs)
 
         shiftobs = Observable(SVector(0., 0.))
