@@ -35,13 +35,13 @@ function imalign_interactive(files)
         mod = @modify(ustrip, mod |> RecursiveOfType(ModelComponent) |> flux)
         (;freq=VLBI.frequency(fimg), mod, beam=VLBI.load(Beam, f))
     end sort(by=_.freq)
-    avgcircbeam = @p images_with_data map(fwhm_average(_.beam)) geomean() construct(Beam{CircularGaussian}, fwhm_average => __)
+    avgcircbeam = @p images_with_data map(fwhm_average(_.beam)) geomean() construct(Beam{CircularGaussian}, fwhm_average => __ |> u"mas")
 
     colors = [:red, :blue]
-    radecs = @p range(-8u"mas", 8u"mas", length=512) grid(ra=reverse(__), dec=__)
+    radecs = @p range(0u"mas" ± 10*fwhm_average(avgcircbeam), length=512) grid(ra=reverse(__), dec=__)
 
-    with_theme(Axis=(;width=350, height=350)) do
-        fig = Figure()
+    let
+        fig = Figure(size=(1300, 500))
 
         σobs = Observable(ustrip(u"mas", avgcircbeam.σ))
         curbeam = @lift beam(CircularGaussian, σ=$σobs)
@@ -51,19 +51,19 @@ function imalign_interactive(files)
         img_b = @lift cc_to_image(images_with_data[2].mod; σ=$σobs*u"mas", radecs)
         SI = @lift spectral_index($img_a, $img_b, map(:freq, images_with_data); threshold=0.3e-3)
 
-        shiftmax = 0.9
+        shiftmax = 1.5*fwhm_average(avgcircbeam) |> u"mas"
 
         corrmasksize = Observable(1.)
         xcorr_unsm = @lift unsmoothed_xcorr_ccs(CorrelationKind.Raw(),
             mask_ccs(images_with_data[2].mod, $corrmasksize*u"mas"),
             mask_ccs(images_with_data[1].mod, $corrmasksize*u"mas");
-            radecs=(@p range(0u"mas"±shiftmax*u"mas", length=64) grid(ra=reverse(__), dec=__)));
+            radecs=(@p range(0u"mas"±shiftmax, length=128) grid(ra=reverse(__), dec=__)));
         xcorrimg = @lift smooth($xcorr_unsm; σ=$σobs*u"mas")
 
         curpos = Observable(SVector(NaN, NaN))
         curpos_fplt = @lift FPlot($curpos, identity; color=(:white, 0.5), strokewidth=1, strokecolor=Ref(:black), marker=marker_lw(:cross, 0.5), markersize=15)
 
-        shiftax = Axis(fig[1,1], limits=(-1, 1, -1, 1) .* shiftmax, aspect=DataAspect(), xreversed=true, xlabel="ra (mas)", ylabel="dec (mas)", backgroundcolor=:black)
+        shiftax = Axis(fig[1,1], limits=(-1, 1, -1, 1) .* ustrip(u"mas", shiftmax), aspect=DataAspect(), xreversed=true, xlabel="ra (mas)", ylabel="dec (mas)", backgroundcolor=:black)
         image!(xcorrimg, colormap=:turbo, colorrange=@lift (0.6, 1) .* maximum(abs, $xcorrimg))
         text!((0.99, 0.99), text="Image shift\nColor = X-corr", space=:relative, align=(:right, :top), color=:white)
         vlines!(0, color=:white)
@@ -71,10 +71,10 @@ function imalign_interactive(files)
         scatter!(shiftobs; color=:white, strokecolor=:black, strokewidth=1)
         beampoly!(curbeam, color=(:white, 0), strokecolor=(:white, 0.3), strokewidth=1)
 
-        ax_si, plt_si = image(fig[1,3], SI, colormap=:turbo, colorrange=(-1.5, 1), axis=(xlabel="", ylabel=""), interpolate=true)
+        ax_si, plt_si = image(fig[1,3], SI, colormap=:turbo, colorrange=(-1.8, 1.2), axis=(xlabel="", ylabel=""), interpolate=true)
         text!((0.99, 0.99), text="Spectral index", space=:relative, align=(:right, :top))
         scatter!(curpos_fplt)
-        Colorbar(fig[1,4], plt_si)
+        Colorbar(fig[1,4], plt_si; height=250, tellheight=false)
 
         ax, _ = contour(fig[1, 2], img_a, levels=(@p maximum(img_a[]) maprange(log, __/1e3, __*0.9, length=15)), color=colors[1])
         contour!(img_b, levels=(@p maximum(img_b[]) maprange(log, __/1e3, __*0.9, length=15)), color=colors[2])
