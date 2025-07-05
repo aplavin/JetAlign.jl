@@ -25,9 +25,11 @@ include("image_processing.jl")
 include("correlation.jl")
 
 function imalign_interactive(files; colors=[:red, :blue], display=true)
-    @assert length(files) == 2
+    length(files) == 2 || error("Exactly two files must be provided for alignment, got $(length(files))")
     files = map(expanduser, files)
-    @assert all(isfile, files)
+    if !all(isfile, files)
+        error("Files not found:\n$(@p files filter(!isfile) join(__, '\n'))")
+    end
 
     images_with_data = @p map(files) do f
         fimg = VLBI.load(f, read_data=false)
