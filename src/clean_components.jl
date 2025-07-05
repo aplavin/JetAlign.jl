@@ -42,3 +42,9 @@ function cc_to_image(cc; σ, radecs, shift=SVector(0u"mas", 0u"mas"))
     end
     return smooth!(img; σ)
 end
+
+function spectral_index(a::MultiComponentModel, b::MultiComponentModel, freqs; shift, radecs, σ, kwargs...)
+    ccs_ab = (a, b)
+    shifted_imgs = (cc_to_image(ccs_ab[1]; σ, radecs, shift), cc_to_image(ccs_ab[2]; σ, radecs))
+    spectral_index(shifted_imgs..., freqs; kwargs...)
+end

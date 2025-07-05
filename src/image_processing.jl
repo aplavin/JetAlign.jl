@@ -40,9 +40,3 @@ function smooth!(A::KeyedArray; σ::Number)
 end
 
 smooth(A::AbstractArray; kwargs...) = smooth!(copy(A); kwargs...)
-
-function spectral_index(a::MultiComponentModel, b::MultiComponentModel, freqs; shift, radecs, σ, kwargs...)
-    ccs_ab = (a, b)
-    shifted_imgs = (cc_to_image(ccs_ab[1]; σ, radecs, shift), cc_to_image(ccs_ab[2]; σ, radecs))
-    spectral_index(shifted_imgs..., freqs; kwargs...)
-end

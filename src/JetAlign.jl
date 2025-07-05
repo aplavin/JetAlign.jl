@@ -23,25 +23,10 @@ using Scratch
 export imalign_interactive
 
 include("utils.jl")
+include("string_alignment.jl")
+include("observables.jl")
 include("image_processing.jl")
-include("correlation.jl")
-
-function setup_state_persistence(statekey, stateobs_single)
-    state_db_file = joinpath(@get_scratch!("cache"), "cache.db")
-    state_db = SQLite.DB(state_db_file)
-    state_dict = SQLDictionary{typeof(statekey), @NamedTuple{ui::Any}}(state_db, "ui_state")
-    stored_state = get(state_dict, statekey, nothing)
-    if !isnothing(stored_state)
-        if typeof(stored_state.ui) == typeof(stateobs_single[])
-            stateobs_single[] = stored_state.ui
-        else
-            @warn "Previous UI state is stored, but types do not match. Resetting to default."
-        end
-    end
-    on(Makie.Observables.throttle(2, stateobs_single)) do _
-        set!(state_dict, statekey, (;ui=stateobs_single[]))
-    end
-end
+include("clean_components.jl")
 
 function imalign_interactive(files; colors=[:red, :blue], display=true)
     length(files) == 2 || error("Exactly two files must be provided for alignment, got $(length(files))")
@@ -173,38 +158,5 @@ function imalign_interactive(files; colors=[:red, :blue], display=true)
         return fig
     end
 end
-
-function lift_getset(get, set!, obstriggers...)
-    tgtobs = Observable(get())
-    selfupdating = Ref(0)
-    onany(obstriggers...) do _...
-        selfupdating[] += 1
-        tgtobs[] = get()
-        selfupdating[] -= 1
-    end
-    on(tgtobs) do v
-        if selfupdating[] == 0
-            set!(v)
-        end
-    end
-    return tgtobs
-end
-
-function obs_getset(obs_get, obs_set)
-    obs = typeof(obs_get)(obs_get[])
-    selfupdating = Ref(0)
-    on(obs_get) do v
-        selfupdating[] += 1
-        obs[] = v
-        selfupdating[] -= 1
-    end
-    on(obs) do v
-        if selfupdating[] == 0
-            obs_set[] = v
-        end
-    end
-    return obs
-end
-
 
 end
