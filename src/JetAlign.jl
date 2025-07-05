@@ -24,7 +24,7 @@ include("utils.jl")
 include("image_processing.jl")
 include("correlation.jl")
 
-function imalign_interactive(files)
+function imalign_interactive(files; colors=[:red, :blue], display=true)
     @assert length(files) == 2
     files = map(expanduser, files)
     @assert all(isfile, files)
@@ -37,7 +37,6 @@ function imalign_interactive(files)
     end sort(by=_.freq)
     avgcircbeam = @p images_with_data map(fwhm_average(_.beam)) geomean() construct(Beam{CircularGaussian}, fwhm_average => __ |> u"mas")
 
-    colors = [:red, :blue]
     radecs = @p range(0u"mas" ± 10*fwhm_average(avgcircbeam), length=512) grid(ra=reverse(__), dec=__)
 
     let
@@ -126,14 +125,16 @@ function imalign_interactive(files)
         map!(identity, corrmasksize, sg.sliders[2].value)
         notify(sg.sliders[2].value)
 
-        let hl_strs = highlight_string_differences(files; colors=[:red, :blue])
+        let hl_strs = highlight_string_differences(files; colors)
             Label(fig[0,1:2], rich(hl_strs[1] * "\n" * hl_strs[2], color=:gray70, font="JuliaMono"))
         end
 
-        resize_to_layout!()
-
-        MakieExtra.show_gl_icon_in_dock()
-        display(fig)
+        if display
+            MakieExtra.show_gl_icon_in_dock()
+            Base.display(fig)
+        else
+            return fig
+        end
     end
 end
 
