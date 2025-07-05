@@ -2,6 +2,20 @@ using TestItems
 using TestItemRunner
 @run_package_tests
 
+
+@testitem "imalign_interactive smoke test" begin
+    using JetAlign
+    using JetAlign.VLBIFiles
+    
+    # Get test data from VLBIFiles package
+    vlbifiles_test_dir = joinpath(pkgdir(VLBIFiles), "test", "data")
+    map_fits = joinpath(vlbifiles_test_dir, "map.fits")
+    
+    # Test that imalign_interactive runs without error (don't display the figure)
+    imalign_interactive([map_fits, map_fits]; display=false)
+    imalign_interactive([map_fits, map_fits]; display=false)
+end
+
 @testitem "align_strings" begin
     using JetAlign: align_strings
     
