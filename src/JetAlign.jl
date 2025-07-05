@@ -26,6 +26,23 @@ include("utils.jl")
 include("image_processing.jl")
 include("correlation.jl")
 
+function setup_state_persistence(statekey, stateobs_single)
+    state_db_file = joinpath(@get_scratch!("cache"), "cache.db")
+    state_db = SQLite.DB(state_db_file)
+    state_dict = SQLDictionary{typeof(statekey), @NamedTuple{ui::Any}}(state_db, "ui_state")
+    stored_state = get(state_dict, statekey, nothing)
+    if !isnothing(stored_state)
+        if typeof(stored_state.ui) == typeof(stateobs_single[])
+            stateobs_single[] = stored_state.ui
+        else
+            @warn "Previous UI state is stored, but types do not match. Resetting to default."
+        end
+    end
+    on(Makie.Observables.throttle(2, stateobs_single)) do _
+        set!(state_dict, statekey, (;ui=stateobs_single[]))
+    end
+end
+
 function imalign_interactive(files; colors=[:red, :blue], display=true)
     length(files) == 2 || error("Exactly two files must be provided for alignment, got $(length(files))")
     files = map(expanduser, files)
@@ -121,46 +138,33 @@ function imalign_interactive(files; colors=[:red, :blue], display=true)
         (label = "Beam FWHM", range=0.05:0.01:1.5, format = "{:.2f} mas", startvalue=InterferometricModels.σ_to_fwhm(σobs[])),
         (label = "X-corr mask radius", range=0:0.1:3, format = "{:.2f} mas", startvalue=corrmasksize[]),
         tellheight=true, tellwidth=false)
-    on(sg.sliders[1].value) do fwhm
+    on(sg.sliders[1].value; update=true) do fwhm
         σobs[] = InterferometricModels.fwhm_to_σ(fwhm)
     end
-    notify(sg.sliders[1].value)
-    map!(identity, corrmasksize, sg.sliders[2].value)
-    notify(sg.sliders[2].value)
+    map!(identity, corrmasksize, sg.sliders[2].value; update=true)
 
     let hl_strs = highlight_string_differences(files; colors)
         Label(fig[0,:][1,1], rich(hl_strs[1] * "\n" * hl_strs[2], color=:gray70, font="JuliaMono"))
     end
     colorbuffer(fig)  # to ensure default finallimits are set
 
-    statekey = NamedTuple{(:f1, :f2)}(NTuple{2}(files))
+    statekey = @NamedTuple{f1::String, f2::String}(NTuple{2}(files))
     stateobs = (;
         slider_ixs = map(sl -> sl.selected_index, sg.sliders),
         shiftobs,
         ax_limits = obs_getset(ax.finallimits, ax.limits),
         shiftax_limits = obs_getset(shiftax.finallimits, shiftax.limits),
     )
-    get_cur_state() = modify(o -> o[], stateobs, RecursiveOfType(Observable))
-    set_cur_state(vals) = modify((o, v) -> o[] = v, stateobs, RecursiveOfType(Observable), vals)
-    statedefault = get_cur_state()
+    stateobs_single = lift_getset(
+        () -> modify(o -> o[], stateobs, RecursiveOfType(Observable)),
+        state -> modify((o, v) -> o[] = v, stateobs, RecursiveOfType(Observable), state),
+        getall(stateobs, RecursiveOfType(Observable))...
+    )
+    statedefault = stateobs_single[]
     on(Button(fig[0,:][1,3], label="Reset").clicks) do _
-        set_cur_state(statedefault)
+        stateobs_single[] = statedefault
     end
-    state_db_file = joinpath(@get_scratch!("cache"), "cache.db")
-    state_db = SQLite.DB(state_db_file)
-    state_dict = SQLDictionary{@NamedTuple{f1::String, f2::String}, @NamedTuple{ui::Any}}(state_db, "ui_state")
-    stored_state = get(state_dict, statekey, nothing)
-    if !isnothing(stored_state)
-        if typeof(stored_state.ui) == typeof(statedefault)
-            set_cur_state(stored_state.ui)
-        else
-            @warn "Previous UI state is stored, but types do not match. Resetting to default."
-        end
-    end
-    stateobs_trigger = lift(Returns(nothing), stateobs...)
-    on(Makie.Observables.throttle(2, stateobs_trigger)) do _
-        set!(state_dict, statekey, (;ui=get_cur_state()))
-    end
+    setup_state_persistence(statekey, stateobs_single)
 
     if display
         MakieExtra.show_gl_icon_in_dock()
@@ -170,21 +174,33 @@ function imalign_interactive(files; colors=[:red, :blue], display=true)
     end
 end
 
-function obs_getset(obs_get, obs_set)
-    obs = typeof(obs_get)(obs_get[])
-    selfupdating = Base.Lockable(Ref(false))
-    on(obs_get) do v
-        lock(selfupdating) do selfupdating
-            selfupdating[] = true
-            obs[] = v
-            selfupdating[] = false
+function lift_getset(get, set!, obstriggers...)
+    tgtobs = Observable(get())
+    selfupdating = Ref(0)
+    onany(obstriggers...) do _...
+        selfupdating[] += 1
+        tgtobs[] = get()
+        selfupdating[] -= 1
+    end
+    on(tgtobs) do v
+        if selfupdating[] == 0
+            set!(v)
         end
     end
+    return tgtobs
+end
+
+function obs_getset(obs_get, obs_set)
+    obs = typeof(obs_get)(obs_get[])
+    selfupdating = Ref(0)
+    on(obs_get) do v
+        selfupdating[] += 1
+        obs[] = v
+        selfupdating[] -= 1
+    end
     on(obs) do v
-        lock(selfupdating) do selfupdating
-            if !selfupdating[]
-                obs_set[] = v
-            end
+        if selfupdating[] == 0
+            obs_set[] = v
         end
     end
     return obs
