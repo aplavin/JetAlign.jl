@@ -28,12 +28,15 @@ include("observables.jl")
 include("image_processing.jl")
 include("clean_components.jl")
 
+const RAN_ONCE = Ref(false)
+
 function imalign_interactive(files; colors=[:red, :blue], display=true)
     length(files) == 2 || error("Exactly two files must be provided for alignment, got $(length(files))")
     files = map(expanduser, files)
     if !all(isfile, files)
         error("Files not found:\n$(@p files filter(!isfile) join(__, '\n'))")
     end
+    RAN_ONCE[] || (println("running JetAlign for the first time, this may take a while..."); RAN_ONCE[] = true)
 
     images_with_data = @p map(files) do f
         fimg = VLBI.load(f, read_data=false)
@@ -69,7 +72,7 @@ function imalign_interactive(files; colors=[:red, :blue], display=true)
 
     shiftax = Axis(fig[1,1], limits=(-1, 1, -1, 1) .* ustrip(u"mas", shiftmax), aspect=DataAspect(), xreversed=true, xlabel="ra (mas)", ylabel="dec (mas)", backgroundcolor=:black)
     image!(xcorrimg, colormap=:turbo, colorrange=@lift (0.6, 1) .* maximum(abs, $xcorrimg))
-    text!((0.99, 0.99), text="Image shift\nColor = X-corr", space=:relative, align=(:right, :top), color=:white)
+    text!((0.99, 0.99), text="Color = X-corr\nImage shift:\ndrag with the mouse", space=:relative, align=(:right, :top), color=:white)
     vlines!(0, color=:white)
     hlines!(0, color=:white)
     scatter!(shiftobs; color=:white, strokecolor=:black, strokewidth=1)
@@ -97,35 +100,16 @@ function imalign_interactive(files; colors=[:red, :blue], display=true)
     linkaxes!(ax_si, ax)
 
 
-    on(events(shiftax).mousebutton, priority=10) do evt
-        if is_mouseinside(shiftax) && evt.button == Makie.Mouse.left
-            shiftobs[] = Tuple(mouseposition(shiftax))
-            Consume()
-        end
-    end
-
-    on(events(fig).mouseposition, priority=10) do pos
-        if is_mouseinside(shiftax) && ispressed(fig, Makie.Mouse.left)
-            shiftobs[] = Tuple(mouseposition(shiftax))
-            return Consume()
-        end
-    end
-
-    on(events(fig).mouseposition) do pos
-        if is_mouseinside(ax) || is_mouseinside(ax_si)
-            curpos[] = Tuple(mouseposition(is_mouseinside(ax) ? ax : ax_si))
-        else
-            curpos[] = (NaN, NaN)
-        end
+    map!(identity, shiftobs, mouse_position_obs(shiftax; key=Exclusively(Mouse.left)); update=false)
+    map!(curpos, mouse_position_obs(ax; hold=false), mouse_position_obs(ax_si; hold=false)) do p1, p2
+        all(!isnan, p1) ? p1 : p2
     end
 
     sg = SliderGrid(fig[0,:][1,2],
         (label = "Beam FWHM", range=0.05:0.01:1.5, format = "{:.2f} mas", startvalue=InterferometricModels.σ_to_fwhm(σobs[])),
         (label = "X-corr mask radius", range=0:0.1:3, format = "{:.2f} mas", startvalue=corrmasksize[]),
         tellheight=true, tellwidth=false)
-    on(sg.sliders[1].value; update=true) do fwhm
-        σobs[] = InterferometricModels.fwhm_to_σ(fwhm)
-    end
+    map!(InterferometricModels.fwhm_to_σ, σobs, sg.sliders[1].value)
     map!(identity, corrmasksize, sg.sliders[2].value; update=true)
 
     let hl_strs = highlight_string_differences(files; colors)
