@@ -17,6 +17,8 @@ using ImageFiltering
 using PyFormattedStrings
 using MakieExtra
 import GLMakie
+using SQLite, SQLCollections
+using Scratch
 
 export imalign_interactive
 
@@ -115,7 +117,7 @@ function imalign_interactive(files; colors=[:red, :blue], display=true)
         end
     end
 
-    sg = SliderGrid(fig[0,3],
+    sg = SliderGrid(fig[0,:][1,2],
         (label = "Beam FWHM", range=0.05:0.01:1.5, format = "{:.2f} mas", startvalue=InterferometricModels.σ_to_fwhm(σobs[])),
         (label = "X-corr mask radius", range=0:0.1:3, format = "{:.2f} mas", startvalue=corrmasksize[]),
         tellheight=true, tellwidth=false)
@@ -127,7 +129,37 @@ function imalign_interactive(files; colors=[:red, :blue], display=true)
     notify(sg.sliders[2].value)
 
     let hl_strs = highlight_string_differences(files; colors)
-        Label(fig[0,1:2], rich(hl_strs[1] * "\n" * hl_strs[2], color=:gray70, font="JuliaMono"))
+        Label(fig[0,:][1,1], rich(hl_strs[1] * "\n" * hl_strs[2], color=:gray70, font="JuliaMono"))
+    end
+    colorbuffer(fig)  # to ensure default finallimits are set
+
+    statekey = NamedTuple{(:f1, :f2)}(NTuple{2}(files))
+    stateobs = (;
+        slider_ixs = map(sl -> sl.selected_index, sg.sliders),
+        shiftobs,
+        ax_limits = obs_getset(ax.finallimits, ax.limits),
+        shiftax_limits = obs_getset(shiftax.finallimits, shiftax.limits),
+    )
+    get_cur_state() = modify(o -> o[], stateobs, RecursiveOfType(Observable))
+    set_cur_state(vals) = modify((o, v) -> o[] = v, stateobs, RecursiveOfType(Observable), vals)
+    statedefault = get_cur_state()
+    on(Button(fig[0,:][1,3], label="Reset").clicks) do _
+        set_cur_state(statedefault)
+    end
+    state_db_file = joinpath(@get_scratch!("cache"), "cache.db")
+    state_db = SQLite.DB(state_db_file)
+    state_dict = SQLDictionary{@NamedTuple{f1::String, f2::String}, @NamedTuple{ui::Any}}(state_db, "ui_state")
+    stored_state = get(state_dict, statekey, nothing)
+    if !isnothing(stored_state)
+        if typeof(stored_state.ui) == typeof(statedefault)
+            set_cur_state(stored_state.ui)
+        else
+            @warn "Previous UI state is stored, but types do not match. Resetting to default."
+        end
+    end
+    stateobs_trigger = lift(Returns(nothing), stateobs...)
+    on(Makie.Observables.throttle(2, stateobs_trigger)) do _
+        set!(state_dict, statekey, (;ui=get_cur_state()))
     end
 
     if display
@@ -136,6 +168,26 @@ function imalign_interactive(files; colors=[:red, :blue], display=true)
     else
         return fig
     end
+end
+
+function obs_getset(obs_get, obs_set)
+    obs = typeof(obs_get)(obs_get[])
+    selfupdating = Base.Lockable(Ref(false))
+    on(obs_get) do v
+        lock(selfupdating) do selfupdating
+            selfupdating[] = true
+            obs[] = v
+            selfupdating[] = false
+        end
+    end
+    on(obs) do v
+        lock(selfupdating) do selfupdating
+            if !selfupdating[]
+                obs_set[] = v
+            end
+        end
+    end
+    return obs
 end
 
 
