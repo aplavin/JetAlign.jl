@@ -57,11 +57,41 @@ function imalign_interactive(files; shiftsfile=nothing, colors=[:red, :blue], di
     img_a = @lift cc_to_image(images_with_data[1].mod; σ=$σobs*u"mas", radecs, shift=SVector($shiftobs)u"mas")
     img_b = @lift cc_to_image(images_with_data[2].mod; σ=$σobs*u"mas", radecs)
     threshold_dynrange = Observable(1e4)
-    SI = @lift spectral_index($img_a, $img_b, map(:freq, images_with_data); threshold_dynrange=$threshold_dynrange)
+    SI_color_kwargs = (;colormap=Makie.ColorSchemes.turbo, colorrange=(-1.8, 1.2))
+    SI_which = Observable(:single)
+    SI_multishifts = Observable(SVector{2,Float64}[])
+    on(shiftobs) do _
+        SI_which[] = :single
+    end
+    on(SI_multishifts) do vals
+        SI_which[] = isempty(vals) ? :single : :multi
+    end
+    SI_img = @lift begin
+        if $SI_which == :single
+            SI = spectral_index($img_a, $img_b, map(:freq, images_with_data); threshold_dynrange=$threshold_dynrange)
+            map(SI) do si
+                si_s = shift_range(si, Interval(SI_color_kwargs.colorrange...) => 0..1; clamp=true)
+                isnan(si_s) ? RGBAf(0,0,0,0) : RGBAf(get(SI_color_kwargs.colormap, si_s))
+            end
+        elseif $SI_which == :multi
+            SIs = stack($SI_multishifts) do shift
+                img_a = cc_to_image(images_with_data[1].mod; σ=$σobs*u"mas", radecs, shift=shift*u"mas")
+                spectral_index(img_a, $img_b, map(:freq, images_with_data); threshold_dynrange=$threshold_dynrange)
+            end
+            SI_img_raw = map(eachslice(SIs, dims=(1,2))) do sis
+                int = Interval(clamp.(extrema(sis), SI_color_kwargs.colorrange...)...)
+                si_s = shift_range(mean(int), Interval(SI_color_kwargs.colorrange...) => 0..1; clamp=true)
+                isnan(si_s) ? RGBAf(0,0,0,0) : RGBAf(get(SI_color_kwargs.colormap, si_s), shift_range(width(int), 1.5..0 => 0..1; clamp=true))
+            end
+            set($img_b, AxisKeys.keyless_unname, SI_img_raw)
+        else
+            @error "Unknown spectral index mode" SI_which
+        end
+    end
 
     shiftmax = 1.5*fwhm_average(avgcircbeam) |> u"mas"
 
-    corrmasksize = Observable(1.)
+    corrmasksize = Observable(ustrip(u"mas", 1.5*fwhm_average(avgcircbeam)))
     xcorr_unsm = @lift unsmoothed_xcorr_ccs(CorrelationKind.Raw(),
         mask_ccs(images_with_data[2].mod, $corrmasksize*u"mas"),
         mask_ccs(images_with_data[1].mod, $corrmasksize*u"mas");
@@ -79,10 +109,10 @@ function imalign_interactive(files; shiftsfile=nothing, colors=[:red, :blue], di
     scatter!(shiftobs; color=:white, strokecolor=:black, strokewidth=1)
     beampoly!(curbeam, color=(:white, 0), strokecolor=(:white, 0.3), strokewidth=1)
 
-    ax_si, plt_si = image(fig[1,3], SI, colormap=:turbo, colorrange=(-1.8, 1.2), axis=(xlabel="", ylabel=""), interpolate=true)
+    ax_si, plt_si = image(fig[1,3], SI_img, axis=(xlabel="", ylabel=""), interpolate=true)
     text!((0.99, 0.99), text="Spectral index", space=:relative, align=(:right, :top))
     scatter!(curpos_fplt)
-    Colorbar(fig[1,4], plt_si; height=250, tellheight=false)
+    Colorbar(fig[1,4]; SI_color_kwargs..., height=250, tellheight=false)
 
     ax, _ = contour(fig[1, 2], img_a, levels=(@p maximum(img_a[]) maprange(log, __/1e3, __*0.9, length=15)), color=colors[1])
     contour!(img_b, levels=(@p maximum(img_b[]) maprange(log, __/1e3, __*0.9, length=15)), color=colors[2])
@@ -125,6 +155,7 @@ function imalign_interactive(files; shiftsfile=nothing, colors=[:red, :blue], di
     end
     ip = InteractivePoints(shiftpoints)
     with_widgets(scatter!, [ip])(shiftax, (@lift FPlot($(ip.data), identity)))
+    map!(identity, SI_multishifts, ip.data; update=true)
     save_key = string(UUIDs.uuid4())[1:8]
     on(Button(fig[0,:][1,3][2,1], label="Save shifts").clicks) do _
         file = joinpath(@get_scratch!("alignments"), "$save_key.toml")
