@@ -4,7 +4,7 @@ An interactive tool for aligning multi-frequency jet images, aimed primarily at 
 
 ## Features ✨
 
-- **Interactive Jet Alignment** 🎯: Real-time alignment of multi-frequency VLBI jet images with intuitive mouse controls
+- **Interactive Jet Alignment** 🎯: Semi-manual alignment of multi-frequency VLBI jet images with intuitive mouse controls
 - **Spectral Index Visualization** 📊: Compute and display spectral index maps to evaluate alignment and study jet emission properties
 - **Cross-Correlation Analysis** 🔍: Image cross-correlation tools for guidance in alignment
 
