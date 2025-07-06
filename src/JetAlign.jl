@@ -56,7 +56,8 @@ function imalign_interactive(files; shiftsfile=nothing, colors=[:red, :blue], di
     shiftobs = Observable(SVector(0., 0.))
     img_a = @lift cc_to_image(images_with_data[1].mod; σ=$σobs*u"mas", radecs, shift=SVector($shiftobs)u"mas")
     img_b = @lift cc_to_image(images_with_data[2].mod; σ=$σobs*u"mas", radecs)
-    SI = @lift spectral_index($img_a, $img_b, map(:freq, images_with_data); threshold=0.3e-3)
+    threshold_dynrange = Observable(1e4)
+    SI = @lift spectral_index($img_a, $img_b, map(:freq, images_with_data); threshold_dynrange=$threshold_dynrange)
 
     shiftmax = 1.5*fwhm_average(avgcircbeam) |> u"mas"
 
@@ -106,11 +107,13 @@ function imalign_interactive(files; shiftsfile=nothing, colors=[:red, :blue], di
     end
 
     sg = SliderGrid(fig[0,:][1,2],
-        (label = "Beam FWHM", range=0.05:0.01:1.5, format = "{:.2f} mas", startvalue=InterferometricModels.σ_to_fwhm(σobs[])),
-        (label = "X-corr mask radius", range=0:0.1:3, format = "{:.2f} mas", startvalue=corrmasksize[]),
+        (label = "Beam FWHM",          range = 0.05:0.01:1.5,                      format = "{:.2f} mas", startvalue = InterferometricModels.σ_to_fwhm(σobs[])),
+        (label = "X-corr mask radius", range = 0:0.1:3,                            format = "{:.2f} mas", startvalue = corrmasksize[]),
+        (label = "Dynamic range",      range = maprange(log, 10..1e6; length=201), format = "{:.1e}",       startvalue = threshold_dynrange[]),
         tellheight=true, tellwidth=false)
     map!(InterferometricModels.fwhm_to_σ, σobs, sg.sliders[1].value)
     map!(identity, corrmasksize, sg.sliders[2].value; update=true)
+    map!(identity, threshold_dynrange, sg.sliders[3].value; update=true)
 
     shiftpoints = isnothing(shiftsfile) ? SVector{2,Float64}[] : begin
         shiftsfile = expanduser(shiftsfile)
