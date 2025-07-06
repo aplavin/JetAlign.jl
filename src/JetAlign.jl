@@ -199,4 +199,12 @@ function imalign_interactive(files; shiftsfile=nothing, colors=[:red, :blue], di
     end
 end
 
+using PrecompileTools
+
+@compile_workload let
+    vlbifiles_test_dir = joinpath(pkgdir(VLBIFiles), "test", "data")
+    map_fits = joinpath(vlbifiles_test_dir, "map.fits")
+    imalign_interactive([map_fits, map_fits]; display=false)
+end
+
 end
