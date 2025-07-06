@@ -3,18 +3,21 @@ struct Raw end
 struct Normalized end
 end
 
-mask_ccs(mod::MultiComponentModel, radius) = @modify(components(mod)) do ccs
-    filter(ccs) do cc
-        norm(coords(cc)) > radius
+mask_ccs(mod::MultiComponentModel, radius) =
+    @modify(components(mod)) do ccs
+        filter(ccs) do cc
+            norm(coords(cc)) > radius
+        end
     end
-end
 
-function aggregate_ccs_by_pixel(ccs; step)
-    @p @modify(components(ccs)) do __
-        group_vg(round_.(coords(_), step))
-        map(InterferometricModels.Point(sum(flux, _), key(_)))
+aggregate_ccs_by_pixel(ccs; step) =
+    @modify(components(ccs)) do ccs
+        @p let
+            ccs
+            group_vg(round_.(coords(_), step))
+            map(InterferometricModels.Point(sum(flux, _), key(_)))
+        end
     end
-end
 
 function unsmoothed_xcorr_ccs(::CorrelationKind.Raw, ccs_a, ccs_b; radecs)
     pixstep = @p axiskeys(radecs) map(step(_) |> abs) uniqueonly
@@ -30,9 +33,7 @@ function unsmoothed_xcorr_ccs(::CorrelationKind.Raw, ccs_a, ccs_b; radecs)
     return xcorr
 end
 
-function xcorr_ccs(kind::CorrelationKind.Raw, ccs_a, ccs_b; radecs, σ)
-    smooth!(unsmoothed_xcorr_ccs(kind, ccs_a, ccs_b; radecs); σ)
-end
+xcorr_ccs(kind::CorrelationKind.Raw, ccs_a, ccs_b; radecs, σ) = smooth!(unsmoothed_xcorr_ccs(kind, ccs_a, ccs_b; radecs); σ)
 
 function cc_to_image(cc; σ, radecs, shift=SVector(0u"mas", 0u"mas"))
     img = map(Returns(0.), radecs)
@@ -43,8 +44,5 @@ function cc_to_image(cc; σ, radecs, shift=SVector(0u"mas", 0u"mas"))
     return smooth!(img; σ)
 end
 
-function spectral_index(a::MultiComponentModel, b::MultiComponentModel, freqs; shift, radecs, σ, kwargs...)
-    ccs_ab = (a, b)
-    shifted_imgs = (cc_to_image(ccs_ab[1]; σ, radecs, shift), cc_to_image(ccs_ab[2]; σ, radecs))
-    spectral_index(shifted_imgs..., freqs; kwargs...)
-end
+spectral_index(a::MultiComponentModel, b::MultiComponentModel, freqs; shift, radecs, σ, kwargs...) = 
+    spectral_index(cc_to_image(a; σ, radecs, shift), cc_to_image(b; σ, radecs), freqs; kwargs...)
