@@ -19,6 +19,8 @@ using MakieExtra
 import GLMakie
 using SQLite, SQLCollections
 using Scratch
+using UUIDs
+import TOML
 
 export imalign_interactive
 
@@ -28,15 +30,13 @@ include("observables.jl")
 include("image_processing.jl")
 include("clean_components.jl")
 
-const RAN_ONCE = Ref(false)
 
-function imalign_interactive(files; colors=[:red, :blue], display=true)
+function imalign_interactive(files; shiftsfile=nothing, colors=[:red, :blue], display=true)
     length(files) == 2 || error("Exactly two files must be provided for alignment, got $(length(files))")
     files = map(expanduser, files)
     if !all(isfile, files)
         error("Files not found:\n$(@p files filter(!isfile) join(__, '\n'))")
     end
-    RAN_ONCE[] || (println("running JetAlign for the first time, this may take a while..."); RAN_ONCE[] = true)
 
     images_with_data = @p map(files) do f
         fimg = VLBI.load(f, read_data=false)
@@ -112,8 +112,30 @@ function imalign_interactive(files; colors=[:red, :blue], display=true)
     map!(InterferometricModels.fwhm_to_σ, σobs, sg.sliders[1].value)
     map!(identity, corrmasksize, sg.sliders[2].value; update=true)
 
+    shiftpoints = isnothing(shiftsfile) ? SVector{2,Float64}[] : begin
+        shiftsfile = expanduser(shiftsfile)
+        isfile(shiftsfile) || error("Shifts file not found: $shiftsfile")
+        data = TOML.parsefile(shiftsfile)
+        files = data["files"]
+        files == files[1:2] || error("Shifts file must contain shifts for the provided files only, got $(files)")
+        map(SVector{2,Float64}, data["shifts"])
+    end
+    ip = InteractivePoints(shiftpoints)
+    with_widgets(scatter!, [ip])(shiftax, (@lift FPlot($(ip.data), identity)))
+    save_key = string(UUIDs.uuid4())[1:8]
+    on(Button(fig[0,:][1,3][2,1], label="Save shifts").clicks) do _
+        file = joinpath(@get_scratch!("alignments"), "$save_key.toml")
+        open(file, "w") do io
+            TOML.print(io, Dict(
+                "files" => files,
+                "shifts" => ip.data[],
+            ))
+        end
+        @info "Saved shifts to $file"
+    end
+
     let hl_strs = highlight_string_differences(files; colors)
-        Label(fig[0,:][1,1], rich(hl_strs[1] * "\n" * hl_strs[2], color=:gray70, font="JuliaMono"))
+        Label(fig[0,:][1,1], rich(hl_strs[1] * "\n" * hl_strs[2], color=:gray10, font="JuliaMono"))
     end
     colorbuffer(fig)  # to ensure default finallimits are set
 
@@ -130,7 +152,7 @@ function imalign_interactive(files; colors=[:red, :blue], display=true)
         getall(stateobs, RecursiveOfType(Observable))...
     )
     statedefault = stateobs_single[]
-    on(Button(fig[0,:][1,3], label="Reset").clicks) do _
+    on(Button(fig[0,:][1,3][1,1], label="Reset").clicks) do _
         stateobs_single[] = statedefault
     end
     setup_state_persistence(statekey, stateobs_single)
