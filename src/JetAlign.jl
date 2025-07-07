@@ -192,7 +192,7 @@ function imalign_interactive(files; shiftsfile=nothing, colors=[:red, :blue], di
     setup_state_persistence(statekey, stateobs_single)
 
     if display
-        MakieExtra.show_gl_icon_in_dock()
+        Sys.isapple() && MakieExtra.show_gl_icon_in_dock()
         Base.display(fig)
     else
         return fig
