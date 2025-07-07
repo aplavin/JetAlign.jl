@@ -132,7 +132,7 @@ function imalign_interactive(files; shiftsfile=nothing, colors=[:red, :blue], di
 
 
     map!(identity, shiftobs, mouse_position_obs(shiftax; key=Exclusively(Mouse.left)); update=false)
-    map!(curpos, mouse_position_obs(ax; hold=false), mouse_position_obs(ax_si; hold=false)) do p1, p2
+    map!(curpos, mouse_position_obs(ax; hold=false, consume=false), mouse_position_obs(ax_si; hold=false, consume=false)) do p1, p2
         all(!isnan, p1) ? p1 : p2
     end
 
