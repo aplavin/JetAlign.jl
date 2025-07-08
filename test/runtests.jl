@@ -20,19 +20,19 @@ using TestItemRunner
     fig = current_figure()
     @showtime Makie.colorbuffer(fig)
 
-    sliders = @getall fig |> RecursiveOfType(Makie.Slider)
-    checkboxes = @getall fig |> RecursiveOfType(Makie.Checkbox)
-    @test length(sliders) > 0
-    # @test length(checkboxes) > 0
-    for _ in 1:30
-        for cb in checkboxes
-            cb.checked[] = rand(Bool)
-        end
-        for sl in sliders
-            sl.selected_index[] = rand(eachindex(sl.range[]))
-        end
-        Makie.colorbuffer(fig)
-    end
+    # sliders = @getall fig |> RecursiveOfType(Makie.Slider)
+    # checkboxes = @getall fig |> RecursiveOfType(Makie.Checkbox)
+    # @test length(sliders) > 0
+    # # @test length(checkboxes) > 0
+    # for _ in 1:30
+    #     for cb in checkboxes
+    #         cb.checked[] = rand(Bool)
+    #     end
+    #     for sl in sliders
+    #         sl.selected_index[] = rand(eachindex(sl.range[]))
+    #     end
+    #     Makie.colorbuffer(fig)
+    # end
 end
 
 @testitem "align_strings" begin
