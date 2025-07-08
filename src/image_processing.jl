@@ -14,10 +14,11 @@ end
 
 function smooth!(A::Array; σ_pix::Real)
     pad = ceil(Int, 1*σ_pix)
-    A[begin:begin+pad, :] .= 0
-    A[end-pad:end, :] .= 0
-    A[:, begin:begin+pad] .= 0
-    A[:, end-pad:end] .= 0
+    # XXX: is this needed?
+    A[begin:min(begin+pad, end), :] .= 0
+    A[max(end-pad, begin):end, :] .= 0
+    A[:, begin:min(begin+pad, end)] .= 0
+    A[:, max(end-pad, begin):end] .= 0
 
     kernel = Kernel.gaussian((σ_pix,σ_pix), (8*ceil(Int, σ_pix) + 1, 8*ceil(Int, σ_pix) + 1))
 

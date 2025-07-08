@@ -6,6 +6,8 @@ using TestItemRunner
 @testitem "imalign_interactive smoke test" begin
     using JetAlign
     using JetAlign.VLBIFiles
+    using JetAlign.Makie
+    using JetAlign.AccessorsExtra
     
     # Get test data from VLBIFiles package
     vlbifiles_test_dir = joinpath(pkgdir(VLBIFiles), "test", "data")
@@ -13,7 +15,24 @@ using TestItemRunner
     
     # Test that imalign_interactive runs without error (don't display the figure)
     imalign_interactive([map_fits, map_fits]; display=false)
-    imalign_interactive([map_fits, map_fits]; display=false)
+    Makie.colorbuffer(current_figure())
+    @showtime imalign_interactive([map_fits, map_fits]; display=false)
+    fig = current_figure()
+    @showtime Makie.colorbuffer(fig)
+
+    sliders = @getall fig |> RecursiveOfType(Makie.Slider)
+    checkboxes = @getall fig |> RecursiveOfType(Makie.Checkbox)
+    @test length(sliders) > 0
+    # @test length(checkboxes) > 0
+    for _ in 1:30
+        for cb in checkboxes
+            cb.checked[] = rand(Bool)
+        end
+        for sl in sliders
+            sl.selected_index[] = rand(eachindex(sl.range[]))
+        end
+        Makie.colorbuffer(fig)
+    end
 end
 
 @testitem "align_strings" begin
