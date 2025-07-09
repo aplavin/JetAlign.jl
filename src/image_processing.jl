@@ -13,6 +13,7 @@ function spectral_index(a::KeyedArray, b::KeyedArray, freqs; threshold=0, thresh
 end
 
 function smooth!(A::Array; σ_pix::Real)
+    σ_pix = min(σ_pix, 50)  # XXX: to keep reasonable performance
     pad = ceil(Int, 1*σ_pix)
     # XXX: is this needed?
     A[begin:min(begin+pad, end), :] .= 0
