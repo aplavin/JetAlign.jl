@@ -31,7 +31,7 @@ include("image_processing.jl")
 include("clean_components.jl")
 
 
-function imalign_interactive(files; shiftsfile=nothing, colors=[:red, :blue], display=true)
+function imalign_interactive(files; shiftsfile=nothing, colors=[:red, :blue], display=true, persiststate=true)
     length(files) == 2 || error("Exactly two files must be provided for alignment, got $(length(files))")
     files = map(expanduser, files)
     if !all(isfile, files)
@@ -203,7 +203,7 @@ function imalign_interactive(files; shiftsfile=nothing, colors=[:red, :blue], di
     on(Button(fig[0,:][1,1][2,1][1,1], label="Reset").clicks) do _
         stateobs_single[] = statedefault
     end
-    setup_state_persistence(statekey, stateobs_single)
+    persiststate && setup_state_persistence(statekey, stateobs_single)
 
     if display
         Sys.isapple() && MakieExtra.show_gl_icon_in_dock()
@@ -218,7 +218,7 @@ using PrecompileTools
 @compile_workload let
     vlbifiles_test_dir = joinpath(pkgdir(VLBIFiles), "test", "data")
     map_fits = joinpath(vlbifiles_test_dir, "map.fits")
-    imalign_interactive([map_fits, map_fits]; display=false)
+    imalign_interactive([map_fits, map_fits]; display=false, persiststate=false)
 end
 
 end

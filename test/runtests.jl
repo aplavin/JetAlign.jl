@@ -16,7 +16,10 @@ using TestItemRunner
     # Test that imalign_interactive runs without error (don't display the figure)
     imalign_interactive([map_fits, map_fits]; display=false)
     Makie.colorbuffer(current_figure())
-    @showtime imalign_interactive([map_fits, map_fits]; display=false)
+    imalign_interactive([map_fits, map_fits]; display=false)
+    Makie.colorbuffer(current_figure())
+
+    @showtime imalign_interactive([map_fits, map_fits]; display=false, persiststate=false)
     fig = current_figure()
     @showtime Makie.colorbuffer(fig)
 
