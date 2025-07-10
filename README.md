@@ -25,7 +25,7 @@ An interactive tool for aligning multi-frequency jet images, aimed primarily at 
 
 4. **Install Dependencies** 📦: In the Julia REPL, run:
    ```julia
-   julia> ]instantiate
+   julia> Pkg.instantiate()
    ```
 
 ## Quick Start 🚀
