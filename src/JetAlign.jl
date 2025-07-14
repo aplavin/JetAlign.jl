@@ -101,7 +101,7 @@ function imalign_interactive(files; shiftsfile=nothing, colors=[:red, :blue], di
     xcorr_unsm = @lift unsmoothed_xcorr_ccs(CorrelationKind.Raw(),
         mask_ccs(images_with_data[2].mod, $corrmasksize*u"mas"),
         mask_ccs(images_with_data[1].mod, $corrmasksize*u"mas");
-        radecs=(@p range(0u"mas"±2shiftmax, length=256) grid(ra=reverse(__), dec=__)));
+        radecs=(@p range(0u"mas"±4shiftmax, length=386) grid(ra=reverse(__), dec=__)));
     xcorrimg = @lift smooth($xcorr_unsm; σ=$σobs*u"mas")
 
     curpos = Observable(SVector(NaN, NaN))
