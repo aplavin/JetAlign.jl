@@ -120,8 +120,8 @@ function imalign_interactive(files; shiftsfile=nothing, colors=[:red, :blue], di
     scatter!(curpos_fplt)
     Colorbar(fig[1,4]; SI_color_kwargs..., height=250, tellheight=false)
 
-    ax, _ = contour(fig[1, 2], (@lift $imgs[1]), levels=(@p maximum(imgs[][1]) maprange(log, __/1e3, __*0.9, length=15)), color=colors[1])
-    contour!((@lift $imgs[2]), levels=(@p maximum(imgs[][2]) maprange(log, __/1e3, __*0.9, length=15)), color=colors[2])
+    ax, _ = contour(fig[1, 2], (@lift $imgs[1]), levels=(@lift @p maximum(imgs[][1]) maprange(log, __/$threshold_dynrange, __*0.9, length=15)), color=colors[1])
+    contour!((@lift $imgs[2]), levels=(@lift @p maximum(imgs[][2]) maprange(log, __/$threshold_dynrange, __*0.9, length=15)), color=colors[2])
     poly!((@lift Circle(Makie.Point(0.,0), $corrmasksize)), color=(:black, 0.12), strokewidth=0.4, strokecolor=:black)
     text!((0.01, 0.99), text="Stokes I", space=:relative, align=(:left, :top))
     text!((0.99, 0.99), text=(
