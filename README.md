@@ -44,6 +44,12 @@ julia> imalign_interactive([
     "path/to/low_freq_image.fits",
     "path/to/high_freq_image.fits"
 ])
+
+# if you don't have FITS images and just want to explore JetAlign, use these example files:
+julia> imalign_interactive([
+    download("https://astrogeo.org/images/J0433+0521/J0433+0521_S_2016_11_30_pet_map.fits"),
+    download("https://astrogeo.org/images/J0433+0521/J0433+0521_X_2016_11_30_pet_map.fits"),
+])
 ```
 
 ## Contributing 🤝
