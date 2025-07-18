@@ -30,8 +30,10 @@ jobs:
       - name: Install Windows dependencies
         if: runner.os == 'Windows'
         run: |
-          choco install mesa3d --yes
-          choco install freeglut --yes
+          # Enable software rendering for headless OpenGL on Windows
+          echo "Setting up software rendering for OpenGL"
+        env:
+          LIBGL_ALWAYS_SOFTWARE: 1
       - uses: julia-actions/cache@v2
       # - uses: julia-actions/julia-buildpkg@v1
       - name: Run tests (Linux with virtual display)
@@ -40,3 +42,5 @@ jobs:
       - name: Run tests (Windows/macOS)
         if: runner.os != 'Linux'
         run: julia --project -e 'using Pkg; Pkg.test(julia_args=`--check-bounds=auto`)'
+        env:
+          LIBGL_ALWAYS_SOFTWARE: ${{ runner.os == 'Windows' && '1' || '' }}
