@@ -14,16 +14,21 @@ jobs:
     strategy:
       matrix:
         julia-version: ['1.11']
-        arch: [x64]
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
       fail-fast: false
     steps:
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.julia-version }}
-          arch: ${{ matrix.arch }}
-      - run: sudo apt-get update && sudo apt-get install -y xorg-dev mesa-utils xvfb libgl1 freeglut3-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev xsettingsd x11-xserver-utils
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xorg-dev mesa-utils xvfb libgl1 freeglut3-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev xsettingsd x11-xserver-utils
       - uses: julia-actions/cache@v2
       - uses: julia-actions/julia-buildpkg@v1
-      - run: DISPLAY=:0 xvfb-run -s '-screen 0 1024x768x24' julia --project -e 'using Pkg; Pkg.test(julia_args=`--check-bounds=auto`)'
+      - name: Run tests (Linux with virtual display)
+        if: runner.os == 'Linux'
+        run: DISPLAY=:0 xvfb-run -s '-screen 0 1024x768x24' julia --project -e 'using Pkg; Pkg.test(julia_args=`--check-bounds=auto`)'
+      - name: Run tests (Windows/macOS)
+        if: runner.os != 'Linux'
+        run: julia --project -e 'using Pkg; Pkg.test(julia_args=`--check-bounds=auto`)'
