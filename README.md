@@ -28,7 +28,7 @@ https://github.com/user-attachments/assets/b8535ac4-cb6f-4344-b6f0-4144ec11eb67
 
 4. **Install Dependencies** 📦: In the Julia REPL, run:
    ```julia
-   julia> Pkg.instantiate()
+   julia> using Pkg; Pkg.instantiate()
    ```
 
 ## Quick Start 🚀
