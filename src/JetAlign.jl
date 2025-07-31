@@ -176,6 +176,10 @@ function imalign_interactive(files; shiftsfile=nothing, colors=[:red, :blue], di
                 "shifts" => ip.data[],
             ))
         end
+    
+        pfile = "$save_key.png"
+        save(pfile, colorbuffer(contents(fig[1,3]); px_per_unit=5))
+        
         @info "Saved shifts to $file"
     end
 
@@ -212,6 +216,39 @@ function imalign_interactive(files; shiftsfile=nothing, colors=[:red, :blue], di
     else
         return fig
     end
+end
+
+
+
+Makie.colorbuffer(objs::Union{Vector,Tuple}; padding=0, kwargs...) =
+    cropped_colorbuffer(current_figure(), outer_bbox(objs; padding); kwargs...)
+
+function outer_bbox(objs::Union{Vector,Tuple}; kwargs...)
+    bboxes = @p objs map(outer_bbox(_; kwargs...))
+    xint = @p bboxes map(intervals(_)[1]) flatmap(endpoints) Interval(extrema(__)...)
+    yint = @p bboxes map(intervals(_)[2]) flatmap(endpoints) Interval(extrema(__)...)
+    return Rect2(xint, yint)
+end
+function outer_bbox(ax; padding=0)
+    sbb = ax.layoutobservables.suggestedbbox[]
+    prot = ax.layoutobservables.protrusions[]
+    o = sbb.origin .- (prot.left, prot.bottom) .- padding
+    w = sbb.widths .+ (prot.left + prot.right, prot.bottom + prot.top) .+ 2 * padding
+    Rect2(o, w)
+end
+function cropped_colorbuffer(fig, bb; kwargs...)
+    full_bb = fig.scene.viewport[]
+
+    mi = bb.origin
+    ma = mi .+ bb.widths
+    f_mi = (mi .- full_bb.origin) ./ full_bb.widths
+    f_ma = (ma .- full_bb.origin) ./ full_bb.widths
+
+    cb = Makie.colorbuffer(fig; kwargs...)
+    px_mi = round.(Int, reverse(size(cb)) .* f_mi)
+    px_ma = round.(Int, reverse(size(cb)) .* f_ma)
+    px_h = size(cb, 1)
+    cb[(px_h - px_ma[2]):(px_h - px_mi[2]), px_mi[1]:px_ma[1]]
 end
 
 using PrecompileTools
