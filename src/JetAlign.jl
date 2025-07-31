@@ -206,7 +206,8 @@ function imalign_interactive(files; shiftsfile=nothing, colors=[:red, :blue], di
     persiststate && setup_state_persistence(statekey, stateobs_single)
 
     if display
-        Sys.isapple() && MakieExtra.show_gl_icon_in_dock()
+        GLMakie.activate!(focus_on_show=true, title="JetAlign.jl")
+        MakieExtra.show_gl_icon_in_dock()
         Base.display(fig)
     else
         return fig
