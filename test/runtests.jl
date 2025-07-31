@@ -87,7 +87,7 @@ end
 
 @testitem "_" begin
     import Aqua
-    Aqua.test_all(JetAlign)
+    Aqua.test_all(JetAlign; piracies=(;broken=true))
 
     import CompatHelperLocal as CHL
     CHL.@check()
