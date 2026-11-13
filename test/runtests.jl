@@ -140,6 +140,9 @@ end
         store = open_store(db, files)
         JetAlign.SQLCollections.set!(store.dict, store.key, (; ui=(; fwhm=1.0)))
         @test (@test_logs (:warn,) restore(store, default)) === default
+        # an unreadable blob, e.g. of a type not loaded in this session, is not restored
+        JetAlign.SQLite.execute(JetAlign.SQLite.DB(db), "UPDATE ui_state SET v_ui = x'00'")
+        @test (@test_logs (:warn,) restore(open_store(db, files), default)) === default
     end
     @test restore(nothing, default) === default
 end

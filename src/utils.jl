@@ -53,7 +53,13 @@ end
 "The stored state of `store`, or `default` if none is stored or its type differs from `default`'s."
 restore(::Nothing, default) = default
 function restore(store::StateStore, default)
-    stored = get(store.dict, store.key, nothing)
+    stored = try
+        get(store.dict, store.key, nothing)
+    catch e
+        e isa SQLite.SerializeError || rethrow()
+        @warn "Previous UI state is stored, but cannot be read. Resetting to default."
+        return default
+    end
     isnothing(stored) && return default
     props = getproperties(default)
     if typeof(stored.ui) != typeof(props)
