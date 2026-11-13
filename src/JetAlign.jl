@@ -4,259 +4,63 @@ using DataManipulation
 using StaticArrays
 using AccessorsExtra
 using InterferometricModels
-using VLBIFiles; using VLBIFiles: coords, flux
+using InterferometricModels: fwhm_to_σ
+using VLBIFiles
 using AxisKeysExtra
-using StatsBase
+using AxisKeysExtra.AxisKeys: keyless_unname
+using StatsBase: geomean
 using RectiGrids
-using VLBIPlots
 using IntervalSets
-using Unitful, UnitfulAngles, UnitfulAstro
+using Unitful, UnitfulAngles
 using Statistics
 using LinearAlgebra: norm
-using ImageFiltering
 using PyFormattedStrings
-using MakieExtra
-import GLMakie
+using Colors
+import ColorSchemes
 using SQLite, SQLCollections
 using Scratch
 using UUIDs
 import TOML
 
+import CImGui as ig
+import ImPlot
+import ImGuiThemes
+import GLFW, ModernGL   # activate CImGui's GlfwOpenGL3 backend
+using ImPlotExtra: image!, contour!, colorbar!
+
 export imalign_interactive
 
 include("utils.jl")
 include("string_alignment.jl")
-include("observables.jl")
 include("image_processing.jl")
 include("clean_components.jl")
+include("app.jl")
+include("ui.jl")
 
 
-function imalign_interactive(files; shiftsfile=nothing, colors=[:red, :blue], display=true, persiststate=true)
-    length(files) == 2 || error("Exactly two files must be provided for alignment, got $(length(files))")
-    files = map(expanduser, files)
-    if !all(isfile, files)
-        error("Files not found:\n$(@p files filter(!isfile) join(__, '\n'))")
-    end
+"""
+    imalign_interactive(files; shiftsfile=nothing, colors=(colorant"red", colorant"blue"), persiststate=true)
 
-    images_with_data = @p map(files) do f
-        fimg = VLBI.load(f, read_data=false)
-        mod = VLBI.load(MultiComponentModel, f)
-        mod = @modify(ustrip, mod |> RecursiveOfType(ModelComponent) |> flux)
-        halffov = maximum(abs, named_axiskeys(fimg)[1])
-        (;freq=VLBI.frequency(fimg), mod, beam=VLBI.load(Beam, f), halffov)
-    end sort(by=_.freq)
-    avgcircbeam = @p images_with_data map(fwhm_average(_.beam)) geomean() construct(Beam{CircularGaussian}, fwhm_average => __ |> u"mas")
+Open the interactive alignment window for two images (FITS files with clean components) and return when it
+is closed. The lower-frequency image is the one shifted.
 
-    halffov = Observable(@p images_with_data minimum(_.halffov))
-    npix = Observable(512)
+- `shiftsfile`: a shifts TOML written by "Save shifts" for the same `files`; its shifts become the multishift points.
+- `colors`: the two images' colors, by increasing frequency.
+- `persiststate`: restore the UI state of this file pair on launch and save it while running.
+"""
+imalign_interactive(files; kwargs...) = run!(App(files; kwargs...))
 
-    radecs = @lift @p range(0u"mas" ± $halffov, length=$npix) grid(ra=reverse(__), dec=__)
-
-    fig = Figure(size=(1300, 500))
-
-    σobs = Observable(ustrip(u"mas", avgcircbeam.σ))
-    curbeam = @lift beam(CircularGaussian, σ=$σobs)
-
-    shiftobs = Observable(SVector(0., 0.))
-    imgs = @lift (
-        cc_to_image(images_with_data[1].mod; σ=$σobs*u"mas", radecs=$radecs, shift=SVector($shiftobs)u"mas"),
-        cc_to_image(images_with_data[2].mod; σ=$σobs*u"mas", radecs=$radecs)
-    )
-    threshold_dynrange = Observable(1e4)
-    SI_color_kwargs = (;colormap=Makie.ColorSchemes.turbo, colorrange=(-1.8, 1.2))
-    SI_which = Observable(:single)
-    SI_multishifts = Observable(SVector{2,Float64}[])
-    on(shiftobs) do _
-        SI_which[] = :single
-    end
-    on(SI_multishifts) do vals
-        SI_which[] = isempty(vals) ? :single : :multi
-    end
-    SI_img = @lift begin
-        if $SI_which == :single
-            SI = spectral_index($imgs[1], $imgs[2], map(:freq, images_with_data); threshold_dynrange=$threshold_dynrange)
-            map(SI) do si
-                si_s = shift_range(si, Interval(SI_color_kwargs.colorrange...) => 0..1; clamp=true)
-                isnan(si_s) ? RGBAf(0,0,0,0) : RGBAf(get(SI_color_kwargs.colormap, si_s))
-            end
-        elseif $SI_which == :multi
-            SIs = stack($SI_multishifts) do shift
-                img_a = cc_to_image(images_with_data[1].mod; σ=$σobs*u"mas", radecs=$radecs, shift=shift*u"mas")
-                spectral_index(img_a, $imgs[2], map(:freq, images_with_data); threshold_dynrange=$threshold_dynrange)
-            end
-            SI_img_raw = map(eachslice(SIs, dims=(1,2))) do sis
-                int = Interval(clamp.(extrema(sis), SI_color_kwargs.colorrange...)...)
-                si_s = shift_range(mean(int), Interval(SI_color_kwargs.colorrange...) => 0..1; clamp=true)
-                isnan(si_s) ? RGBAf(0,0,0,0) : RGBAf(get(SI_color_kwargs.colormap, si_s), shift_range(width(int), 1.5..0 => 0..1; clamp=true))
-            end
-            set($imgs[2], AxisKeys.keyless_unname, SI_img_raw)
-        else
-            @error "Unknown spectral index mode" SI_which
-        end
-    end
-
-    shiftmax = 1.5*fwhm_average(avgcircbeam) |> u"mas"
-
-    corrmasksize = Observable(ustrip(u"mas", 1.5*fwhm_average(avgcircbeam)))
-    xcorr_unsm = @lift unsmoothed_xcorr_ccs(CorrelationKind.Raw(),
-        mask_ccs(images_with_data[2].mod, $corrmasksize*u"mas"),
-        mask_ccs(images_with_data[1].mod, $corrmasksize*u"mas");
-        radecs=(@p range(0u"mas"±4shiftmax, length=386) grid(ra=reverse(__), dec=__)));
-    xcorrimg = @lift smooth($xcorr_unsm; σ=$σobs*u"mas")
-
-    curpos = Observable(SVector(NaN, NaN))
-    curpos_fplt = @lift FPlot($curpos, identity; color=(:white, 0.5), strokewidth=1, strokecolor=Ref(:black), marker=marker_lw(:cross, 0.5), markersize=15)
-
-    shiftax = Axis(fig[1,1], limits=(-1, 1, -1, 1) .* ustrip(u"mas", shiftmax), aspect=DataAspect(), xreversed=true, xlabel="ra (mas)", ylabel="dec (mas)", backgroundcolor=:black)
-    image!(xcorrimg, colormap=:turbo, colorrange=@lift (0.6, 1) .* maximum(abs, $xcorrimg))
-    text!((0.99, 0.99), text="Color = X-corr\nImage shift:\ndrag with the mouse", space=:relative, align=(:right, :top), color=:white)
-    vlines!(0, color=:white)
-    hlines!(0, color=:white)
-    scatter!(shiftobs; color=:white, strokecolor=:black, strokewidth=1)
-    beampoly!(curbeam, color=(:white, 0), strokecolor=(:white, 0.3), strokewidth=1)
-
-    ax_si, plt_si = image(fig[1,3], SI_img, axis=(xlabel="", ylabel=""), interpolate=true)
-    text!((0.99, 0.99), text="Spectral index", space=:relative, align=(:right, :top))
-    scatter!(curpos_fplt)
-    Colorbar(fig[1,4]; SI_color_kwargs..., height=250, tellheight=false)
-
-    ax, _ = contour(fig[1, 2], (@lift $imgs[1]), levels=(@lift @p maximum(imgs[][1]) maprange(log, __/$threshold_dynrange, __*0.9, length=15)), color=colors[1])
-    contour!((@lift $imgs[2]), levels=(@lift @p maximum(imgs[][2]) maprange(log, __/$threshold_dynrange, __*0.9, length=15)), color=colors[2])
-    poly!((@lift Circle(Makie.Point(0.,0), $corrmasksize)), color=(:black, 0.12), strokewidth=0.4, strokecolor=:black)
-    text!((0.01, 0.99), text="Stokes I", space=:relative, align=(:left, :top))
-    text!((0.99, 0.99), text=(
-        rich(f"{images_with_data[1].freq:.1f}: {maximum(imgs[][1]):.2f} Jy/bm", color=colors[1])
-        *"\n"*
-        rich(f"{images_with_data[2].freq:.1f}: {maximum(imgs[][2]):.2f} Jy/bm", color=colors[2])
-    ), space=:relative, align=(:right, :top))
-    beampoly!(ax, curbeam, color=(:black, 0), strokecolor=:black, strokewidth=1)
-    beampoly!(images_with_data[1].beam|>ustrip, color=(:white, 0), strokecolor=(colors[1], 0.3), strokewidth=1)
-    beampoly!(images_with_data[2].beam|>ustrip, color=(:white, 0), strokecolor=(colors[2], 0.3), strokewidth=1)
-    scatter!(curpos_fplt)
-
-    linkaxes!(ax_si, ax)
-
-
-    map!(identity, shiftobs, mouse_position_obs(shiftax; key=Exclusively(Mouse.left)); update=false)
-    map!(curpos, mouse_position_obs(ax; hold=false, consume=false), mouse_position_obs(ax_si; hold=false, consume=false)) do p1, p2
-        all(!isnan, p1) ? p1 : p2
-    end
-
-    controls_gl = fig[0,:][1,2]
-    map!(InterferometricModels.fwhm_to_σ, σobs,
-        Slider₊(controls_gl[1,1][1,1:3]; label="Beam FWHM", valuef=ff"{:.1f} mas",
-                range=0.05:0.1:(10*σobs[]), startvalue=InterferometricModels.σ_to_fwhm(σobs[]), width=200)[1])
-    map!(identity, threshold_dynrange,
-        Slider₊(controls_gl[1,2][1,1:3]; label="Dynamic range", valuef=ff"{:.2g}",
-                range=maprange(log, 10..1e6; length=201), startvalue=threshold_dynrange[], width=200)[1]; update=true)
-    map!(identity, corrmasksize,
-        Slider₊(controls_gl[3,1][1,1:3]; label="X-corr mask radius", valuef=ff"{:.1f} mas",
-                range=0:0.1:(25*σobs[]), startvalue=corrmasksize[], width=200)[1]; update=true)
-    
-    map!(identity, npix, Slider₊(controls_gl[2,1][1,1:3]; label="npix", range=round.(Int, 2 .^ (6:(1/3):10)), startvalue=npix[], width=200)[1])
-    map!(x -> x*u"mas", halffov, Slider₊(controls_gl[2,2][1,1:3]; label="FoV", range=maprange(log, 0.5..200, length=100), startvalue=ustrip(u"mas", halffov[]), width=200, valuef=ff"{:.1f} mas")[1])
-
-    shiftpoints = isnothing(shiftsfile) ? SVector{2,Float64}[] : begin
-        shiftsfile = expanduser(shiftsfile)
-        isfile(shiftsfile) || error("Shifts file not found: $shiftsfile")
-        data = TOML.parsefile(shiftsfile)
-        files = data["files"]
-        files == files[1:2] || error("Shifts file must contain shifts for the provided files only, got $(files)")
-        map(SVector{2,Float64}, data["shifts"])
-    end
-    ip = InteractivePoints(shiftpoints)
-    with_widgets(scatter!, [ip])(shiftax, (@lift FPlot($(ip.data), identity)))
-    map!(identity, SI_multishifts, ip.data; update=true)
-    save_key = string(UUIDs.uuid4())[1:8]
-    on(Button(fig[0,:][1,1][2,1][1,2], label="Save shifts").clicks) do _
-        file = joinpath(@get_scratch!("alignments"), "$save_key.toml")
-        open(file, "w") do io
-            TOML.print(io, Dict(
-                "files" => files,
-                "shifts" => ip.data[],
-            ))
-        end
-    
-        pfile = "$save_key.png"
-        save(pfile, colorbuffer(contents(fig[1,3]); px_per_unit=5))
-        
-        @info "Saved shifts to $file"
-    end
-
-    let hl_strs = highlight_string_differences(files; colors)
-        Label(fig[0,:][1,1][1,1], rich(hl_strs[1] * "\n" * hl_strs[2], color=:gray10, font="JuliaMono"))
-    end
-    colorbuffer(fig)  # to ensure default finallimits are set
-
-    statekey = @NamedTuple{f1::String, f2::String}(NTuple{2}(files))
-    all_sliders = getall(fig, RecursiveOfType(Slider))
-    stateobs = (;
-        slider_ixs = map(all_sliders) do sl
-            lift_getset(() -> sl.value[], v -> set_close_to!(sl, v), sl.value)
-        end,
-        shiftobs,
-        ax_limits = obs_getset(ax.finallimits, ax.limits),
-        shiftax_limits = obs_getset(shiftax.finallimits, shiftax.limits),
-    )
-    stateobs_single = lift_getset(
-        () -> modify(o -> o[], stateobs, RecursiveOfType(Observable)),
-        state -> modify((o, v) -> o[] = v, stateobs, RecursiveOfType(Observable), state),
-        getall(stateobs, RecursiveOfType(Observable))...
-    )
-    statedefault = stateobs_single[]
-    on(Button(fig[0,:][1,1][2,1][1,1], label="Reset").clicks) do _
-        stateobs_single[] = statedefault
-    end
-    persiststate && setup_state_persistence(statekey, stateobs_single)
-
-    if display
-        GLMakie.activate!(focus_on_show=true, title="JetAlign.jl")
-        MakieExtra.show_gl_icon_in_dock()
-        Base.display(fig)
-    else
-        return fig
-    end
-end
-
-
-
-Makie.colorbuffer(objs::Union{Vector,Tuple}; padding=0, kwargs...) =
-    cropped_colorbuffer(current_figure(), outer_bbox(objs; padding); kwargs...)
-
-function outer_bbox(objs::Union{Vector,Tuple}; kwargs...)
-    bboxes = @p objs map(outer_bbox(_; kwargs...))
-    xint = @p bboxes map(intervals(_)[1]) flatmap(endpoints) Interval(extrema(__)...)
-    yint = @p bboxes map(intervals(_)[2]) flatmap(endpoints) Interval(extrema(__)...)
-    return Rect2(xint, yint)
-end
-function outer_bbox(ax; padding=0)
-    sbb = ax.layoutobservables.suggestedbbox[]
-    prot = ax.layoutobservables.protrusions[]
-    o = sbb.origin .- (prot.left, prot.bottom) .- padding
-    w = sbb.widths .+ (prot.left + prot.right, prot.bottom + prot.top) .+ 2 * padding
-    Rect2(o, w)
-end
-function cropped_colorbuffer(fig, bb; kwargs...)
-    full_bb = fig.scene.viewport[]
-
-    mi = bb.origin
-    ma = mi .+ bb.widths
-    f_mi = (mi .- full_bb.origin) ./ full_bb.widths
-    f_ma = (ma .- full_bb.origin) ./ full_bb.widths
-
-    cb = Makie.colorbuffer(fig; kwargs...)
-    px_mi = round.(Int, reverse(size(cb)) .* f_mi)
-    px_ma = round.(Int, reverse(size(cb)) .* f_ma)
-    px_h = size(cb, 1)
-    cb[(px_h - px_ma[2]):(px_h - px_mi[2]), px_mi[1]:px_ma[1]]
-end
 
 using PrecompileTools
 
 @compile_workload let
-    vlbifiles_test_dir = joinpath(pkgdir(VLBIFiles), "test", "data")
-    map_fits = joinpath(vlbifiles_test_dir, "map.fits")
-    imalign_interactive([map_fits, map_fits]; display=false, persiststate=false)
+    map_fits = joinpath(pkgdir(VLBIFiles), "test", "data", "map.fits")
+    app = App([map_fits, map_fits]; persiststate=false)
+    compute_maps(app.images, maps_inputs(app))
+    set_shifts!(app, [SVector(0.1, 0.2), SVector(-0.3, 0.1)])
+    maps = compute_maps(app.images, maps_inputs(app))
+    map(int -> si_color(app.ui.sicolorrange, int), maps.si)
+    compute_xcorr(app.images, app.xcorr_halfwidth, xcorr_inputs(app))
 end
 
 end

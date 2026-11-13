@@ -1,17 +1,14 @@
-module CorrelationKind
-struct Raw end
-struct Normalized end
-end
+round_(x::Number, precision::Number) = round(Integer, x / precision) * precision
 
-mask_ccs(mod::MultiComponentModel, radius) =
-    @modify(components(mod)) do ccs
-        filter(ccs) do cc
-            norm(coords(cc)) > radius
-        end
+"`model` without the components within `radius` of the origin."
+mask_ccs(model::MultiComponentModel, radius) =
+    @modify(components(model)) do ccs
+        filter(cc -> norm(coords(cc)) > radius, ccs)
     end
 
-aggregate_ccs_by_pixel(ccs; step) =
-    @modify(components(ccs)) do ccs
+"`model` with components merged per cell of size `step`: one point per cell with their total flux."
+aggregate_ccs_by_pixel(model; step) =
+    @modify(components(model)) do ccs
         @p let
             ccs
             group_vg(round_.(coords(_), step))
@@ -19,30 +16,42 @@ aggregate_ccs_by_pixel(ccs; step) =
         end
     end
 
-function unsmoothed_xcorr_ccs(::CorrelationKind.Raw, ccs_a, ccs_b; radecs)
-    pixstep = @p axiskeys(radecs) map(step(_) |> abs) uniqueonly
-    xcorr = map(Returns(0.), radecs)
-    ccs_a_ = aggregate_ccs_by_pixel(ccs_a; step=pixstep/5)
-    ccs_b_ = aggregate_ccs_by_pixel(ccs_b; step=pixstep/5)
-    for cc_a in components(ccs_a_)
-        for cc_b in components(ccs_b_)
-            diff = coords(cc_a) - coords(cc_b)
-            xcorr(Near(diff[1]), Near(diff[2]), :) .+= flux(cc_a) * flux(cc_b)
-        end
+"Index `(i, j)` of the `radecs` grid pixel containing position `coo`, or `nothing` outside the grid."
+function pixel_index(radecs, coo)
+    ij = map(axiskeys(radecs), Tuple(coo)) do ks, x
+        i = round(Int, (x - first(ks)) / step(ks)) + 1
+        i ∈ eachindex(ks) ? i : nothing
     end
-    return xcorr
+    any(isnothing, ij) ? nothing : ij
 end
 
-xcorr_ccs(kind::CorrelationKind.Raw, ccs_a, ccs_b; radecs, σ) = smooth!(unsmoothed_xcorr_ccs(kind, ccs_a, ccs_b; radecs); σ)
-
-function cc_to_image(cc; σ, radecs, shift=SVector(0u"mas", 0u"mas"))
-    img = map(Returns(0.), radecs)
-    for c in components(cc)
-        coo = coords(c) + shift
-        img(Near(coo[1]), Near(coo[2]), :) .+= c.flux
+"`f(c)` of each component `c` summed into the `radecs` pixel at `coo(c)`; components outside the grid are dropped."
+function grid_sum(f, coo, ccs, radecs)
+    img = map(Returns(0.0), radecs)
+    for c in ccs
+        ij = pixel_index(radecs, coo(c))
+        isnothing(ij) || (img[ij...] += f(c))
     end
-    return smooth!(img; σ)
+    img
 end
 
-spectral_index(a::MultiComponentModel, b::MultiComponentModel, freqs; shift, radecs, σ, kwargs...) = 
-    spectral_index(cc_to_image(a; σ, radecs, shift), cc_to_image(b; σ, radecs), freqs; kwargs...)
+"""
+    xcorr_ccs(a, b; radecs)
+
+Cross-correlation of clean-component models `a` and `b` on the `radecs` grid of offsets, unsmoothed.
+It peaks at the shift that aligns `b` with `a`.
+"""
+function xcorr_ccs(a, b; radecs)
+    step = @p axiskeys(radecs) map(abs(Base.step(_))) uniqueonly
+    pairs = Iterators.product(components.(aggregate_ccs_by_pixel.((a, b); step=step / 5))...)
+    grid_sum(((ca, cb),) -> flux(ca) * flux(cb), ((ca, cb),) -> coords(ca) - coords(cb), pairs, radecs)
+end
+
+"""
+    cc_to_image(model; σ, radecs, shift)
+
+Image of clean-component `model` shifted by `shift`, on the `radecs` grid, restored with a circular
+Gaussian beam of width `σ` (see [`smooth`](@ref)).
+"""
+cc_to_image(model; σ, radecs, shift=SVector(0, 0)u"mas") =
+    smooth(grid_sum(flux, c -> coords(c) + shift, components(model), radecs); σ)

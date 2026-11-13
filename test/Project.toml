@@ -1,6 +1,17 @@
 [deps]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+CImGui = "5d785b6c-b76f-510e-a07c-3070796c7e87"
 CompatHelperLocal = "5224ae11-6099-4aaa-941d-3aab004bd678"
+ImGuiTestEngine = "464e2eba-0a11-4ed3-b274-413caa1a1cca"
+ImPlot = "e8efc688-5342-4ad4-b4ba-9025a731b363"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TestItemRunner = "f8b46487-2199-4994-9208-9a1283c18c0a"
 TestItems = "1c621080-faea-4a02-84b6-bbd5e436b8fe"
+VLBIFiles = "c1ebf4c8-f9d4-409a-8daf-7009448f4e6e"
+
+[compat]
+CImGui = "9"
+ImGuiTestEngine = "2"
+ImPlot = "0.8"
+VLBIFiles = "0.4.18"

@@ -1,44 +1,44 @@
-function spectral_index(a::KeyedArray, b::KeyedArray, freqs; threshold=0, threshold_dynrange=Inf)
-    @assert length(freqs) == 2
-    shifted_imgs = a, b
-    log_freq_ratio = log(freqs[2] / freqs[1])
-    si = similar(shifted_imgs[2])
-    si .= log.(clamp.(shifted_imgs[2] ./ shifted_imgs[1], 0, Inf)) ./ log_freq_ratio
-    # shifted_imgs[2]
-    for sh_img in shifted_imgs
-        peak = maximum(sh_img)
-        si[sh_img .< max(threshold, peak / threshold_dynrange)] .= NaN
+"""
+    smooth(img::KeyedArray; σ)
+
+Convolve `img` with a circular Gaussian of width `σ`, normalized to unit peak: a point source of flux
+`F` becomes a Gaussian with peak `F` (Jy/beam). Everything outside the grid counts as zero.
+"""
+function smooth(img::KeyedArray; σ)
+    kernel(ks) = exp.(-(ks .- ks') .^ 2 ./ (2σ^2))   # separable: K_ra * img * K_dec'
+    ra, dec = axiskeys(img)
+    @set keyless_unname(img) = kernel(ra) * keyless_unname(img) * kernel(dec)'
+end
+
+"""
+    spectral_index(a, b, freqs; dynrange)
+
+Spectral index `α` (with `S ∝ νᵅ`) between images `a` at `freqs[1]` and `b` at `freqs[2]`.
+`NaN` wherever either image is fainter than its peak divided by `dynrange`.
+"""
+function spectral_index(a, b, freqs; dynrange)
+    amin, bmin = maximum(a) / dynrange, maximum(b) / dynrange
+    lnν = log(freqs[2] / freqs[1])
+    map((x, y) -> x < amin || y < bmin ? NaN : log(y / x) / lnν, a, b)
+end
+
+"""
+    ellipse(a, b, pa; n=65)
+
+Closed polygon (`n` points, the last repeating the first) of an ellipse centered at zero, with semi-axes
+`a` along position angle `pa` and `b` across it. `pa` is counted from north (+dec) towards east (+ra);
+points are `SVector(ra, dec)`.
+"""
+function ellipse(a, b, pa; n=65)
+    major = SVector(sincos(pa)...)        # (sin pa, cos pa): unit vector along pa in (ra, dec)
+    minor = SVector(major[2], -major[1])
+    map(range(0, 2π, length=n)) do θ
+        s, c = sincos(θ)
+        a * c * major + b * s * minor
     end
-    return si
 end
 
-function smooth!(A::Array; σ_pix::Real)
-    σ_pix = min(σ_pix, 50)  # XXX: to keep reasonable performance
-    pad = ceil(Int, 1*σ_pix)
-    # XXX: is this needed?
-    A[begin:min(begin+pad, end), :] .= 0
-    A[max(end-pad, begin):end, :] .= 0
-    A[:, begin:min(begin+pad, end)] .= 0
-    A[:, max(end-pad, begin):end] .= 0
-
-    kernel = Kernel.gaussian((σ_pix,σ_pix), (8*ceil(Int, σ_pix) + 1, 8*ceil(Int, σ_pix) + 1))
-
-    tmp = map(Returns(0.), A)
-    tmp[end ÷ 2, end ÷ 2] = 1
-    imfilter!(tmp, tmp, kernel)	
-
-    imfilter!(A, A, kernel)
-    A ./= maximum(tmp)
-    # imfilter!(A, A, IF.KernelFactors.IIRGaussian((σ_pix, σ_pix)))
-
-    return A
+"FWHM ellipse of `beam` centered at zero, see [`ellipse`](@ref)."
+beampoly(beam::Beam; kwargs...) = let c = EllipticGaussian(ModelComponent(beam))
+    ellipse(fwhm_max(c) / 2, fwhm_min(c) / 2, position_angle(c); kwargs...)
 end
-
-function smooth!(A::KeyedArray; σ::Number)
-    pixstep = @p axiskeys(A) map(step(_) |> abs) uniqueonly
-    σ_pix = σ / pixstep
-    smooth!(A.data.data; σ_pix)
-    return A
-end
-
-smooth(A::AbstractArray; kwargs...) = smooth!(copy(A); kwargs...)

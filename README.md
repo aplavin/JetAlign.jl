@@ -19,11 +19,11 @@ https://github.com/user-attachments/assets/b8535ac4-cb6f-4344-b6f0-4144ec11eb67
    cd JetAlign.jl
    ```
 
-2. **Install Julia** 💎: Ensure you have Julia 1.11 installed
+2. **Install Julia** 💎: Ensure you have Julia 1.13 installed
 
 3. **Initialize the Environment** 🔧: Start Julia with the project environment
    ```bash
-   julia --project
+   julia --project -t auto
    ```
 
 4. **Install Dependencies** 📦: In the Julia REPL, run:
