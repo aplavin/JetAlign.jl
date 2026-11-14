@@ -16,7 +16,7 @@ Angular quantities are plain numbers in mas.
     skylimits::Limits                       # Stokes I and spectral index plot view
 end
 
-const NPIX_CHOICES = round.(Int, 2 .^ (6:1/3:10))
+const NPIX_CHOICES = sort([2 .^ (5:10); 3 .* 2 .^ (4:8)])  # 32, 48, 64, 96, ..., 768, 1024
 
 # spectral index from the single current shift, or the spread over the multishift points
 struct SingleSI end

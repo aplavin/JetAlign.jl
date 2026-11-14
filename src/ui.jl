@@ -85,9 +85,9 @@ function slider(label, x, lo, hi, fmt, flags=0)
     ig.SliderFloat("##" * label, v, lo, hi, inner_format(label, fmt), flags) ? Float64(v[]) : x
 end
 
-"Slider over the index of `x` in `values`; returns the selected value."
+"Slider over the index of the value nearest to `x` in `values`; returns the selected value."
 function choice_slider(label, values, x)
-    i = Ref(Cint(findfirst(==(x), values) - 1))
+    i = Ref(Cint(argmin(abs.(values .- x)) - 1))  # nearest, e.g. for a stored value no longer among the choices
     ig.SliderInt("##" * label, i, 0, length(values) - 1, inner_format(label, replace(string(x), "%" => "%%")))
     values[i[] + 1]
 end
