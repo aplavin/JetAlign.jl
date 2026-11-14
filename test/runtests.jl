@@ -227,11 +227,11 @@ end
         te.SetRef("JetAlign")
 
         # every slider
-        te.ItemInputValue("Beam FWHM", 3.0)
-        te.ItemInputValue("Dynamic range", 1000.0)
-        te.ItemInputValue("npix", 6)
-        te.ItemInputValue("FoV", 20.0)
-        te.ItemInputValue("X-corr mask radius", 1.0)
+        te.ItemInputValue("##Beam FWHM", 3.0)
+        te.ItemInputValue("##Dynamic range", 1000.0)
+        te.ItemInputValue("##npix", 6)
+        te.ItemInputValue("##FoV", 20.0)
+        te.ItemInputValue("##X-corr mask radius", 1.0)
         te.Yield(2)
         results[:sliders] = (app.ui.fwhm, app.ui.dynrange, app.ui.npix, app.ui.halffov, app.ui.maskradius)
         results[:recomputed] = yield_until(jobs_settled)

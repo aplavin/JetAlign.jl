@@ -47,6 +47,7 @@ end
 # ---------------- controls ----------------
 
 function controls!(app::App)
+    x0, halfw = ig.GetCursorPosX(), ig.GetContentRegionAvail().x / 2
     ig.BeginGroup()
     for (color, runs) in zip(app.colors, difference_runs(map(im -> im.file, app.images)...))
         for (i, r) in enumerate(runs)
@@ -61,9 +62,10 @@ function controls!(app::App)
     ig.Button("Save shifts") && save_shifts!(app)
     ig.EndGroup()
 
-    ig.SameLine(0, 40)
+    # sliders fill the right half, two per row
+    ig.SameLine(x0 + halfw)
     ig.BeginGroup()
-    ig.PushItemWidth(200)
+    ig.PushItemWidth((halfw - unsafe_load(ig.GetStyle().ItemSpacing).x) / 2)
     ui, σ0 = app.ui, fwhm_to_σ(app.defaults.fwhm)
     ui = @set ui.fwhm = slider("Beam FWHM", ui.fwhm, 0.05, 10σ0, "%.1f mas")
     ig.SameLine()
@@ -77,18 +79,21 @@ function controls!(app::App)
     app.ui = ui
 end
 
-"Float slider showing `x`; returns the new value, or `x` itself when untouched."
+"Float slider showing `label: x` inside; returns the new value, or `x` itself when untouched."
 function slider(label, x, lo, hi, fmt, flags=0)
     v = Ref(Cfloat(x))
-    ig.SliderFloat(label, v, lo, hi, fmt, flags) ? Float64(v[]) : x
+    ig.SliderFloat("##" * label, v, lo, hi, inner_format(label, fmt), flags) ? Float64(v[]) : x
 end
 
 "Slider over the index of `x` in `values`; returns the selected value."
 function choice_slider(label, values, x)
     i = Ref(Cint(findfirst(==(x), values) - 1))
-    ig.SliderInt(label, i, 0, length(values) - 1, string(x))
+    ig.SliderInt("##" * label, i, 0, length(values) - 1, inner_format(label, replace(string(x), "%" => "%%")))
     values[i[] + 1]
 end
+
+"printf format `label: fmt`, for a slider that shows its name inside."
+inner_format(label, fmt) = replace(label, "%" => "%%") * ": " * fmt
 
 
 # ---------------- plots ----------------
