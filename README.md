@@ -2,7 +2,7 @@
 
 An interactive tool for aligning multi-frequency jet images, aimed primarily at Very Long Baseline Interferometry (VLBI) observations.
 
-https://github.com/user-attachments/assets/b8535ac4-cb6f-4344-b6f0-4144ec11eb67
+https://github.com/user-attachments/assets/22e40d12-5ef1-4389-b9d8-3d27a028b378
 
 
 ## Features ✨
