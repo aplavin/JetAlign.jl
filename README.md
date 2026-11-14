@@ -1,21 +1,27 @@
-# JetAlign.jl 🚀✨
+<p align="center">
+  <img src="assets/icon.png" alt="JetAlign icon" width="160">
+</p>
 
-An interactive tool for aligning multi-frequency jet images, aimed primarily at Very Long Baseline Interferometry (VLBI) observations.
+<h1 align="center">JetAlign.jl</h1>
+
+<p align="center">
+  An interactive tool for aligning multi-frequency jet images, aimed primarily at Very Long Baseline Interferometry (VLBI) observations.
+</p>
 
 https://github.com/user-attachments/assets/22e40d12-5ef1-4389-b9d8-3d27a028b378
 
 
-## Features ✨
+## Features
 
-- **Interactive Jet Alignment** 🎯: Semi-manual alignment of multi-frequency VLBI jet images with intuitive mouse controls
-- **Spectral Index Visualization** 📊: Compute and display spectral index maps to evaluate alignment and study jet emission properties
-- **Cross-Correlation Analysis** 🔍: Image cross-correlation tools for guidance in alignment
+- **Interactive Jet Alignment**: Semi-manual alignment of multi-frequency VLBI jet images with intuitive mouse controls
+- **Spectral Index Visualization**: Compute and display spectral index maps to evaluate alignment and study jet emission properties
+- **Cross-Correlation Analysis**: Image cross-correlation tools for guidance in alignment
 
 ## Installation
 
-1. **Install Julia** 💎, tested on Julia version 1.13
+1. **Install Julia**, tested on Julia version 1.13
 
-2. **Install this app** 📦:
+2. **Install this app**:
    ```bash
    julia -e 'using Pkg; Pkg.Apps.add("JetAlign")'
    ```
@@ -51,6 +57,6 @@ julia --project -e 'using Pkg; Pkg.instantiate()'     # once
 julia --project -t auto -m JetAlign low_freq_image.fits high_freq_image.fits
 ```
 
-## Contributing 🤝
+## Contributing
 
 JetAlign.jl is under development. Contributions, bug reports, and feature requests are welcome!
