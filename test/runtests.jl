@@ -166,6 +166,17 @@ end
     end
 end
 
+@testitem "CLI" begin
+    using JetAlign: cli_settings
+    using JetAlign.ArgParse: parse_args
+
+    parse(argv) = parse_args(argv, cli_settings())
+    @test parse(["a.fits", "b.fits"]) == Dict("image1" => "a.fits", "image2" => "b.fits", "shifts" => nothing, "no-persist" => false)
+    @test parse(["--shifts", "s.toml", "a.fits", "b.fits"])["shifts"] == "s.toml"
+    @test parse(["a.fits", "b.fits", "--shifts=s.toml"])["shifts"] == "s.toml"
+    @test parse(["a.fits", "--no-persist", "b.fits"]) == Dict("image1" => "a.fits", "image2" => "b.fits", "shifts" => nothing, "no-persist" => true)
+end
+
 # Drives the real window under ImGuiTestEngine on the VLBIFiles map.fits pair: every slider, the shift
 # DragPoint, A/D+click on multishift points, Save shifts and Reset. Needs a display.
 @testitem "windowed app" begin

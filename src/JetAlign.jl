@@ -21,6 +21,7 @@ using SQLite, SQLCollections
 using Scratch
 using UUIDs
 import TOML
+using ArgParse
 
 import CImGui as ig
 import ImPlot
@@ -51,9 +52,37 @@ is closed. The lower-frequency image is the one shifted.
 imalign_interactive(files; kwargs...) = run!(App(files; kwargs...))
 
 
+"Command-line interface of the `jetalign` app."
+function cli_settings()
+    s = ArgParseSettings(prog="jetalign", description="Interactively align two multi-frequency VLBI images.")
+    @add_arg_table! s begin
+        "--shifts"
+            help = "multishift points from a file written by \"Save shifts\" for the same files"
+            metavar = "FILE"
+        "--no-persist"
+            help = "don't restore or save the UI state for this file pair"
+            action = :store_true
+        "image1"
+            help = "FITS image with clean components"
+            required = true
+        "image2"
+            help = "FITS image of the same source at another frequency"
+            required = true
+    end
+    s
+end
+
+function (@main)(argv)
+    args = parse_args(argv, cli_settings())
+    imalign_interactive([args["image1"], args["image2"]]; shiftsfile=args["shifts"], persiststate=!args["no-persist"])
+    return 0
+end
+
+
 using PrecompileTools
 
 @compile_workload let
+    parse_args(["--shifts", "s.toml", "a.fits", "b.fits"], cli_settings())
     map_fits = joinpath(pkgdir(VLBIFiles), "test", "data", "map.fits")
     app = App([map_fits, map_fits]; persiststate=false)
     compute_maps(app.images, maps_inputs(app))

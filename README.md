@@ -11,45 +11,44 @@ https://github.com/user-attachments/assets/b8535ac4-cb6f-4344-b6f0-4144ec11eb67
 - **Spectral Index Visualization** 📊: Compute and display spectral index maps to evaluate alignment and study jet emission properties
 - **Cross-Correlation Analysis** 🔍: Image cross-correlation tools for guidance in alignment
 
-## Installation & Setup 🚀
+## Installation
 
-1. **Clone the Repository** 📥: Download JetAlign.jl to your preferred location
+1. **Install Julia** 💎, tested on Julia version 1.13
+
+2. **Install this app** 📦:
    ```bash
-   git clone https://github.com/aplavin/JetAlign.jl.git
-   cd JetAlign.jl
+   julia -e 'using Pkg; Pkg.Apps.add("JetAlign")'
    ```
+   This creates the `jetalign` command in `~/.julia/bin`; add that directory to your `PATH` if it is not there yet.
 
-2. **Install Julia** 💎: Ensure you have Julia 1.13 installed
+Update with `julia -e 'using Pkg; Pkg.Apps.update("JetAlign")'`, uninstall with `julia -e 'using Pkg; Pkg.Apps.rm("JetAlign")'`.
 
-3. **Initialize the Environment** 🔧: Start Julia with the project environment
-   ```bash
-   julia --project -t auto
-   ```
+## Usage
 
-4. **Install Dependencies** 📦: In the Julia REPL, run:
-   ```julia
-   julia> using Pkg; Pkg.instantiate()
-   ```
+```bash
+# align two FITS images:
+jetalign path/to/low_freq_image.fits path/to/high_freq_image.fits
 
-## Quick Start 🚀
+# start from shifts saved earlier with the "Save shifts" button:
+jetalign --shifts saved_shifts.toml low_freq_image.fits high_freq_image.fits
+```
 
-Load JetAlign and start aligning your jet images:
+If you don't have FITS images and just want to explore JetAlign, you can use these example files:
+```bash
+wget https://astrogeo.org/images/J0433+0521/J0433+0521_S_2016_11_30_pet_map.fits
+wget https://astrogeo.org/images/J0433+0521/J0433+0521_X_2016_11_30_pet_map.fits
+jetalign J0433+0521_S_2016_11_30_pet_map.fits J0433+0521_X_2016_11_30_pet_map.fits
+```
 
-```julia
-# Load the package
-julia> using JetAlign
+### Without installing the app
 
-# Basic Usage - Align two FITS images
-julia> imalign_interactive([
-    "path/to/low_freq_image.fits",
-    "path/to/high_freq_image.fits"
-])
+From a clone of the repository, the same command line runs as `julia -m JetAlign`:
 
-# if you don't have FITS images and just want to explore JetAlign, use these example files:
-julia> imalign_interactive([
-    download("https://astrogeo.org/images/J0433+0521/J0433+0521_S_2016_11_30_pet_map.fits"),
-    download("https://astrogeo.org/images/J0433+0521/J0433+0521_X_2016_11_30_pet_map.fits"),
-])
+```bash
+git clone https://github.com/aplavin/JetAlign.jl && cd JetAlign.jl
+julia --project -e 'using Pkg; Pkg.instantiate()'     # once
+
+julia --project -t auto -m JetAlign low_freq_image.fits high_freq_image.fits
 ```
 
 ## Contributing 🤝

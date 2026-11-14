@@ -3,8 +3,12 @@ uuid = "80fbffc5-fc4b-4117-a1a5-227656eac960"
 version = "0.1.0"
 authors = ["Alexander Plavin <alexander@plav.in>"]
 
+[apps]
+jetalign = {julia_flags = ["--threads=auto"]}
+
 [deps]
 AccessorsExtra = "33016aad-b69d-45be-9359-82a41f556fd4"
+ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
 AxisKeysExtra = "b7a0d2b7-1990-46dc-b5dd-87820ecd1b09"
 CImGui = "5d785b6c-b76f-510e-a07c-3070796c7e87"
 ColorSchemes = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
@@ -38,6 +42,7 @@ ImPlotExtra = {path = "../ImPlotExtra"}
 
 [compat]
 AccessorsExtra = "0.1.98"
+ArgParse = "1.2.0"
 AxisKeysExtra = "0.1.22"
 CImGui = "9.1.2"
 ColorSchemes = "3.31.0"
