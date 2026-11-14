@@ -34,6 +34,9 @@ Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 UnitfulAngles = "6fb2a4bd-7999-5318-a3b2-8ad61056cd98"
 VLBIFiles = "c1ebf4c8-f9d4-409a-8daf-7009448f4e6e"
 
+[sources]
+CImGui = {rev = "fix-gc-safe-leave", url = "https://github.com/aplavin/CImGui.jl"}
+
 [compat]
 AccessorsExtra = "0.1.98"
 ArgParse = "1.2.0"

@@ -2,7 +2,7 @@
 
 julia_version = "1.13.3"
 manifest_format = "2.1"
-project_hash = "bf7c8716039813dc97096f28e456ca613d7b1489"
+project_hash = "34542693c6407c38acb9b51769d6bcb72df2d731"
 
 [[deps.Accessors]]
 deps = ["CompositionsBase", "ConstructionBase", "Dates", "InverseFunctions", "MacroTools"]
@@ -186,10 +186,11 @@ version = "4.7.0+0"
 
 [[deps.CImGui]]
 deps = ["CEnum", "CImGuiPack_jll", "CSyntax", "DocStringExtensions", "PrecompileTools", "Printf", "Statistics"]
-git-tree-sha1 = "301344c5cf09d581f48faea70c260e2168058e00"
-registries = "General"
+git-tree-sha1 = "220cead22cf4f32e7ee6b49bc896b67fcfbc1362"
+repo-rev = "fix-gc-safe-leave"
+repo-url = "https://github.com/aplavin/CImGui.jl"
 uuid = "5d785b6c-b76f-510e-a07c-3070796c7e87"
-version = "10.1.1"
+version = "10.1.2"
 
     [deps.CImGui.extensions]
     GlfwOpenGLBackend = ["GLFW", "ModernGL"]
