@@ -2,7 +2,7 @@
 
 julia_version = "1.13.3"
 manifest_format = "2.1"
-project_hash = "2c5c4eef0ef0f3380d8911b963a1bd044544e1d0"
+project_hash = "bf7c8716039813dc97096f28e456ca613d7b1489"
 
 [[deps.Accessors]]
 deps = ["CompositionsBase", "ConstructionBase", "Dates", "InverseFunctions", "MacroTools"]
@@ -186,10 +186,10 @@ version = "4.7.0+0"
 
 [[deps.CImGui]]
 deps = ["CEnum", "CImGuiPack_jll", "CSyntax", "DocStringExtensions", "PrecompileTools", "Printf", "Statistics"]
-git-tree-sha1 = "b93684488620e697130dd5bd88f682d7fbd98007"
+git-tree-sha1 = "301344c5cf09d581f48faea70c260e2168058e00"
 registries = "General"
 uuid = "5d785b6c-b76f-510e-a07c-3070796c7e87"
-version = "9.1.2"
+version = "10.1.1"
 
     [deps.CImGui.extensions]
     GlfwOpenGLBackend = ["GLFW", "ModernGL"]
@@ -202,10 +202,10 @@ version = "9.1.2"
 
 [[deps.CImGuiPack_jll]]
 deps = ["Artifacts", "FreeType2_jll", "GLFW_jll", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "148ff87544fba1a78fedd4f2dc593423e1a48437"
+git-tree-sha1 = "fdf299faaabfe75bb97b9b47cf95e0867ef8ece8"
 registries = "General"
 uuid = "333409e9-af72-5310-9767-d6ad21a76a05"
-version = "0.13.1+0"
+version = "0.14.0+0"
 
 [[deps.CSV]]
 deps = ["CodecZlib", "Dates", "FilePathsBase", "InlineStrings", "Mmap", "Parsers", "PooledArrays", "PrecompileTools", "SentinelArrays", "Tables", "Unicode", "WeakRefStrings", "WorkerUtilities"]
@@ -489,11 +489,15 @@ uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
 version = "1.11.0"
 
 [[deps.FixedPointNumbers]]
-deps = ["Random", "Statistics"]
-git-tree-sha1 = "59af96b98217c6ef4ae0dfe065ac7c20831d1a84"
+deps = ["Random"]
+git-tree-sha1 = "c4ebbf6271b2ea446fd618a2a47eea7254a4e94b"
 registries = "General"
 uuid = "53c48c17-4a7d-5ca2-90c5-79b7896eea93"
-version = "0.8.6"
+version = "0.9.3"
+weakdeps = ["Statistics"]
+
+    [deps.FixedPointNumbers.extensions]
+    FixedPointNumbersStatisticsExt = "Statistics"
 
 [[deps.FlexiGroups]]
 deps = ["AccessorsExtra", "Combinatorics", "DataPipes", "Dictionaries", "FlexiMaps"]
@@ -564,10 +568,10 @@ version = "1.11.0"
 
 [[deps.GLFW]]
 deps = ["GLFW_jll"]
-git-tree-sha1 = "af06f66cca2b698ab9c482de55977ff8178d025e"
+git-tree-sha1 = "f16f6d47e3c8f17ef184f6f09ee793dbd2a4c2c0"
 registries = "General"
 uuid = "f7f18e0c-5ee9-5ccd-a5bf-e8befd85ed98"
-version = "3.4.6"
+version = "4.0.0"
 
 [[deps.GLFW_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libglvnd_jll", "Xorg_libXcursor_jll", "Xorg_libXi_jll", "Xorg_libXinerama_jll", "Xorg_libXrandr_jll", "libdecor_jll", "xkbcommon_jll"]
@@ -606,23 +610,24 @@ version = "100.15001.0+0"
 
 [[deps.ImGuiThemes]]
 deps = ["Accessors", "CImGui", "Colors", "Downloads", "Libdl", "SHA", "Scratch", "TOML"]
-git-tree-sha1 = "92814a5efaa68d15cce68201ad51493fe96d65c3"
+git-tree-sha1 = "0f76e8c8647811e4f891aaa86657aebed3469599"
 registries = "General"
 uuid = "deadbeef-cafe-face-babe-c0ffeedecade"
-version = "0.1.4"
+version = "0.1.5"
 
 [[deps.ImPlot]]
 deps = ["CEnum", "CImGui", "CImGuiPack_jll", "ConstructionBase", "DocStringExtensions"]
-git-tree-sha1 = "e5c0d617f29828e2865c952c67c88b85e2de71f9"
+git-tree-sha1 = "1ded43e9e7b3d7c7509a45310bcd1b4e357cb80e"
 registries = "General"
 uuid = "e8efc688-5342-4ad4-b4ba-9025a731b363"
-version = "0.8.1"
+version = "1.0.0"
 
 [[deps.ImPlotExtra]]
 deps = ["Accessors", "CImGui", "ColorSchemes", "ColorTypes", "Contour", "FixedPointNumbers", "ImPlot", "IntervalSets", "InverseFunctions", "Printf"]
-path = "../ImPlotExtra"
+git-tree-sha1 = "dc1577b37e256a06b5db6f8356e51464b1e8ae34"
+registries = "General"
 uuid = "bf2a09a8-fe43-4b24-a47f-d3d0370c11fb"
-version = "0.1.4"
+version = "0.1.3"
 
 [[deps.Indexing]]
 git-tree-sha1 = "ce1566720fd6b19ff3411404d4b977acd4814f9f"
