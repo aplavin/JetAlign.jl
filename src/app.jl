@@ -45,7 +45,7 @@ mutable struct App{I,S}
     const xcorr_halfwidth::Float64
     const defaults::UIState
     const store::S                          # StateStore, or nothing to not persist
-    const savekey::String                   # name of the file Save shifts writes
+    const savekey::String                   # name of the file Save shifts writes to the working directory
     ui::UIState
     shifts::Vector{SVector{2,Float64}}      # multishift points; replaced on change, never mutated
     simode::Union{SingleSI,MultiSI}
@@ -85,7 +85,7 @@ set_shift!(app::App, shift) = (app.ui = setproperties(app.ui; shift); app.simode
 
 set_shifts!(app::App, shifts) = (app.shifts = shifts; app.simode = isempty(shifts) ? SingleSI() : MultiSI(); app)
 
-shifts_path(app::App) = joinpath(@get_scratch!("alignments"), "$(app.savekey).toml")
+shifts_path(app::App) = joinpath(pwd(), "$(app.savekey).toml")
 
 function save_shifts!(app::App)
     save_shifts(shifts_path(app), app.files, app.shifts)

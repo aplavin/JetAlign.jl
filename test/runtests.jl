@@ -265,8 +265,7 @@ end
         results[:reset] = (app.ui, app.simode)
     end
 
-    run!(app; engine)
-    rm(shifts_path(app); force=true)
+    cd(() -> run!(app; engine), mktempdir())
 
     summary = te.GetResultSummary(engine)
     @test summary.CountTested == 1
