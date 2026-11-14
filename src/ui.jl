@@ -20,6 +20,7 @@ end
 "Open the app window; returns when it is closed. `engine`: an ImGuiTestEngine context driving it."
 function run!(app::App; engine=nothing)
     ctx, pctx = init_context!()
+    ImGuiThemes.set_app_icon!(pkgdir(@__MODULE__, "assets", "icon.png"))   # before render: AppKit wants the main thread
     ig.render(ctx; engine, spawn=:interactive, window_title="JetAlign.jl", window_size=(1400, 650),
               on_exit=() -> (persist!(app; interval=0); ImPlot.DestroyContext(pctx))) do
         frame!(app)
